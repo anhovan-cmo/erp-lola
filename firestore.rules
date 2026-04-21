@@ -1,0 +1,140 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false; // Global catch-all deny
+    }
+
+    // Primitive Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn(); }
+    function isAdmin() { return isVerified() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN'; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entity Validations
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role'])
+        && data.keys().hasOnly(['email', 'name', 'role', 'permissions', 'createdAt', 'updatedAt'])
+        && (!('permissions' in data) || data.permissions is map)
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 256
+        && (!('name' in data) || data.name == null || (data.name is string && data.name.size() <= 256))
+        && data.role in ['ADMIN', 'ACCOUNTANT', 'CSKH', 'WAREHOUSE', 'PENDING'];
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasOnly(['id', 'name', 'brand', 'price', 'cost', 'stock', 'image', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 500
+        && (!('brand' in data) || data.brand == null || (data.brand is string && data.brand.size() <= 100))
+        && data.price is number && data.price >= 0
+        && data.cost is number && data.cost >= 0
+        && data.stock is number
+        && (!('image' in data) || data.image == null || (data.image is string && data.image.size() <= 2048));
+    }
+
+    function isValidPartner(data) {
+      return data.keys().hasOnly(['id', 'type', 'name', 'phone', 'totalReceivable', 'totalPayable', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.type in ['CUSTOMER', 'SUPPLIER']
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 256
+        && (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() <= 32))
+        && data.totalReceivable is number
+        && data.totalPayable is number;
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasOnly(['id', 'type', 'date', 'totalValue', 'costValue', 'note', 'partnerId', 'partnerName', 'userId', 'items', 'createdAt', 'updatedAt', 'discount', 'otherFees', 'amountPaid'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.type in ['IMPORT', 'EXPORT']
+        && data.date is string && data.date.size() > 0 && data.date.size() <= 50
+        && data.totalValue is number && data.totalValue >= 0
+        && (!('costValue' in data) || data.costValue == null || data.costValue is number)
+        && (!('note' in data) || data.note == null || (data.note is string && data.note.size() <= 1000))
+        && (!('partnerId' in data) || data.partnerId == null || (data.partnerId is string && data.partnerId.size() <= 128))
+        && (!('partnerName' in data) || data.partnerName == null || (data.partnerName is string && data.partnerName.size() <= 256))
+        && (!('discount' in data) || data.discount == null || data.discount is number)
+        && (!('otherFees' in data) || data.otherFees == null || data.otherFees is number)
+        && (!('amountPaid' in data) || data.amountPaid == null || data.amountPaid is number)
+        && (!('items' in data) || data.items == null || (data.items is list && data.items.size() <= 500))
+        && data.userId == request.auth.uid;
+    }
+
+    function isValidActivityLog(data) {
+      return data.keys().hasOnly(['id', 'userId', 'userName', 'action', 'module', 'details', 'createdAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.userId is string && data.userId == request.auth.uid
+        && data.userName is string && data.userName.size() <= 256
+        && data.action is string && data.action.size() <= 100
+        && data.module is string && data.module.size() <= 100
+        && data.details is string && data.details.size() <= 2000;
+    }
+
+    // Paths
+    match /products/{productId} {
+      allow get, list: if isVerified();
+      allow create: if isVerified() 
+        && isValidId(productId) 
+        && isValidProduct(incoming()) 
+        && incoming().createdAt == request.time;
+      allow update: if isVerified() 
+        && isValidId(productId) 
+        && isValidProduct(incoming()) 
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'brand', 'price', 'cost', 'stock', 'image', 'updatedAt'])
+          || isAdmin()
+        )
+        && incoming().updatedAt == request.time
+        && incoming().createdAt == existing().createdAt;
+      allow delete: if isVerified() && isValidId(productId);
+    }
+
+    match /partners/{partnerId} {
+      allow get, list: if isVerified();
+      allow create: if isVerified() 
+        && isValidId(partnerId) 
+        && isValidPartner(incoming()) 
+        && incoming().createdAt == request.time;
+      allow update: if isVerified() 
+        && isValidId(partnerId) 
+        && isValidPartner(incoming()) 
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'totalReceivable', 'totalPayable', 'updatedAt'])
+          || isAdmin()
+        )
+        && incoming().updatedAt == request.time
+        && incoming().createdAt == existing().createdAt;
+      allow delete: if isVerified() && isValidId(partnerId);
+    }
+
+    match /transactions/{transactionId} {
+      allow get, list: if isVerified();
+      allow create: if isVerified() 
+        && isValidId(transactionId) 
+        && isValidTransaction(incoming()) 
+        && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidTransaction(incoming()); 
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if isVerified() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isVerified() && request.auth.uid == userId && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isVerified() && (
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt'])) ||
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'permissions', 'updatedAt'])) ||
+        (isAdmin()) // Added generic admin update bypass for flexibility
+      ) && incoming().updatedAt == request.time && isValidUser(incoming());
+      allow delete: if isAdmin();
+    }
+    match /activity_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isVerified() && isValidId(logId) && isValidActivityLog(incoming()) && incoming().createdAt == request.time;
+      allow update, delete: if false; // immutable
+    }
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile and role",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN", "ACCOUNTANT", "CSKH", "WAREHOUSE", "PENDING"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role"]
+    },
+    "product": {
+      "title": "Product",
+      "description": "Retail item/antique",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "brand": { "type": "string" },
+        "price": { "type": "number" },
+        "cost": { "type": "number" },
+        "stock": { "type": "number" },
+        "image": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "price", "cost", "stock"]
+    },
+    "transaction": {
+      "title": "Transaction",
+      "description": "Import/Export record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["IMPORT", "EXPORT"] },
+        "date": { "type": "string" },
+        "totalValue": { "type": "number" },
+        "costValue": { "type": "number" },
+        "note": { "type": "string" },
+        "partnerId": { "type": "string" },
+        "partnerName": { "type": "string" },
+        "discount": { "type": "number" },
+        "otherFees": { "type": "number" },
+        "amountPaid": { "type": "number" },
+        "userId": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+             "type": "object",
+             "properties": {
+                "productId": { "type": "string" },
+                "name": { "type": "string" },
+                "quantity": { "type": "number" },
+                "price": { "type": "number" },
+                "cost": { "type": "number" }
+             }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "type", "date", "totalValue", "userId"]
+    },
+    "partner": {
+      "title": "Partner",
+      "description": "Customer or Supplier",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["CUSTOMER", "SUPPLIER"] },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "totalReceivable": { "type": "number" },
+        "totalPayable": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "type", "name", "totalReceivable", "totalPayable"]
+    },
+    "activity_log": {
+      "title": "Activity Log",
+      "description": "System activity logs recorded from users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "module": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "userName", "action", "module", "details"]
+    }
+  },
+  "firestore": {
+    "activity_logs/{logId}": {
+      "schema": "activity_log",
+      "description": "Global activity logs"
+    },
+    "products/{productId}": {
+      "schema": "product",
+      "description": "Global product inventory"
+    },
+    "transactions/{transactionId}": {
+      "schema": "transaction",
+      "description": "Global transactions log"
+    },
+    "partners/{partnerId}": {
+      "schema": "partner",
+      "description": "Global customers and suppliers"
+    },
+    "users/{userId}": {
+      "schema": "user",
+      "description": "User profiles and roles"
+    }
+  }
+}
