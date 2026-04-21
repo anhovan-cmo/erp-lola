@@ -15,6 +15,8 @@ export function PartnersPage() {
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [detailPartner, setDetailPartner] = useState<Partner | null>(null);
   const [importing, setImporting] = useState(false);
+  const [syncingKiotViet, setSyncingKiotViet] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{status: 'IDLE'|'FETCHING'|'SAVING'|'DONE'|'ERROR', saved: number, total: number, message: string}>({status: 'IDLE', saved: 0, total: 0, message: ''});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,6 +78,78 @@ export function PartnersPage() {
       } catch (e: any) {
         alert('Lỗi khi thiết lập: ' + e.message);
       }
+    }
+  };
+
+  const executeSyncKiotViet = async () => {
+    if (!window.confirm('Xác nhận đồng bộ dữ liệu Khách hàng & Nhà cung cấp từ KiotViet? Quá trình này sẽ lấy dữ liệu nợ và làm mới danh sách đối tác.')) return;
+    setSyncingKiotViet(true);
+    setSyncProgress({ status: 'FETCHING', saved: 0, total: 0, message: 'Đang kết nối KiotViet và tải danh sách...' });
+    
+    try {
+      const res = await fetch('/api/kiotviet/sync-partners');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Server lỗi không rõ nguyên nhân');
+
+      const totalItems = (data.customers?.length || 0) + (data.suppliers?.length || 0);
+      setSyncProgress({ status: 'SAVING', saved: 0, total: totalItems, message: `Đã tải ${totalItems} đối tác. Đang lưu vào hệ thống...` });
+
+      // Now sync to Firestore
+      let batch = writeBatch(db);
+      let count = 0;
+      const now = serverTimestamp();
+
+      const processItem = async (item: any, type: 'CUSTOMER' | 'SUPPLIER') => {
+        const idStr = String(item.id || item.code || Math.random());
+        const ptRef = doc(collection(db, 'partners'));
+        const name = (item.name || 'Khách KiotViet').substring(0, 256);
+        const phone = (item.contactNumber || item.phone || '').substring(0, 32);
+        const address = (item.address || '').substring(0, 500);
+        const debt = Number(item.debt || 0);
+
+        batch.set(ptRef, {
+          id: ptRef.id,
+          name,
+          phone,
+          address,
+          cccd: '',
+          mst: '',
+          type,
+          totalReceivable: type === 'CUSTOMER' ? debt : 0,
+          totalPayable: type === 'SUPPLIER' ? debt : 0,
+          createdAt: now,
+          updatedAt: now
+        });
+        count++;
+
+        if (count % 20 === 0) { // Batch at 20 so progress bar triggers visually fast
+          await batch.commit();
+          batch = writeBatch(db);
+          setSyncProgress(p => ({ ...p, saved: count, message: `Đang lưu ${count}/${totalItems} đối tác...` }));
+        }
+      };
+
+      for (const cus of data.customers) await processItem(cus, 'CUSTOMER');
+      for (const sup of data.suppliers) await processItem(sup, 'SUPPLIER');
+
+      if (count > 0 && count % 20 !== 0) {
+        await batch.commit();
+        setSyncProgress(p => ({ ...p, saved: count }));
+      }
+      
+      setSyncProgress({ status: 'DONE', saved: count, total: totalItems, message: `Hoàn tất! Đã đồng bộ ${count} đối tác.` });
+      
+      setTimeout(() => {
+        setSyncingKiotViet(false);
+        setSyncProgress({ status: 'IDLE', saved: 0, total: 0, message: '' });
+      }, 3000);
+      
+    } catch (e: any) {
+      setSyncProgress({ status: 'ERROR', saved: 0, total: 0, message: e.message });
+      setTimeout(() => {
+        setSyncingKiotViet(false);
+        setSyncProgress({ status: 'IDLE', saved: 0, total: 0, message: '' });
+      }, 5000);
     }
   };
 
@@ -192,6 +266,15 @@ export function PartnersPage() {
           </button>
 
           <button 
+            disabled={syncingKiotViet}
+            onClick={executeSyncKiotViet}
+            className="bg-[#005fb8] text-white border border-[#005fb8] flex items-center justify-center py-2 px-3 rounded-[3px] font-semibold text-[13px] hover:bg-[#004a94] transition min-w-[100px] flex-1 sm:flex-none disabled:opacity-50"
+            title="Đồng bộ tự động từ KiotViet"
+          >
+            {syncingKiotViet ? "Đang đồng bộ..." : "Đồng bộ KiotViet"}
+          </button>
+
+          <button 
             disabled={importing}
             onClick={() => fileInputRef.current?.click()}
             className="bg-white text-brand-primary border border-brand-primary flex items-center justify-center py-2 px-3 rounded-[3px] font-semibold text-[13px] hover:bg-blue-50 transition min-w-[100px] flex-1 sm:flex-none disabled:opacity-50"
@@ -213,6 +296,55 @@ export function PartnersPage() {
           </button>
         </div>
       </header>
+
+      {syncProgress.status !== 'IDLE' && (
+        <div className="fixed inset-0 bg-[rgba(9,30,66,0.7)] flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[6px] w-full max-w-[400px] shadow-2xl flex flex-col p-6 animate-in fade-in zoom-in duration-200">
+            <h2 className="text-[18px] font-bold text-brand-text text-center mb-4">
+              Đồng Bộ KiotViet
+            </h2>
+            
+            <div className="flex flex-col items-center justify-center gap-4 py-4">
+              {syncProgress.status === 'FETCHING' && (
+                 <div className="w-10 h-10 border-4 border-[#005fb8] border-t-transparent rounded-full animate-spin"></div>
+              )}
+              {syncProgress.status === 'SAVING' && (
+                 <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
+                   <div 
+                     className="bg-[#005fb8] h-2.5 rounded-full transition-all duration-300 relative overflow-hidden" 
+                     style={{ width: `${Math.max(5, (syncProgress.saved / syncProgress.total) * 100)}%` }}
+                   >
+                     <div className="absolute top-0 left-0 right-0 bottom-0 bg-white/20 animate-pulse"></div>
+                   </div>
+                 </div>
+              )}
+              {syncProgress.status === 'DONE' && (
+                 <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                 </div>
+              )}
+              {syncProgress.status === 'ERROR' && (
+                 <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                   <X size={24} strokeWidth={3} />
+                 </div>
+              )}
+              
+              <p className={`text-center font-medium ${syncProgress.status === 'ERROR' ? 'text-red-500' : 'text-brand-text-sub'} text-[14px]`}>
+                {syncProgress.message}
+              </p>
+            </div>
+            
+            {syncProgress.status === 'ERROR' && (
+              <button 
+                onClick={() => { setSyncProgress({status: 'IDLE', saved: 0, total:0, message: ''}); setSyncingKiotViet(false); }}
+                className="mt-4 w-full py-2 bg-slate-100 text-brand-text font-semibold rounded-[3px] hover:bg-slate-200"
+              >
+                Đóng
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {modalOpen && (
         <PartnerFormModal
@@ -269,6 +401,8 @@ export function PartnersPage() {
                 <th className="bg-[#f8f9fa] text-left p-3 text-brand-text-sub font-semibold border-b-2 border-brand-border pl-4 w-[120px]">Phân Loại</th>
                 <th className="bg-[#f8f9fa] text-left p-3 text-brand-text-sub font-semibold border-b-2 border-brand-border min-w-[200px]">Tên Khách/NCC</th>
                 <th className="bg-[#f8f9fa] text-left p-3 text-brand-text-sub font-semibold border-b-2 border-brand-border w-[120px]">Điện Thoại</th>
+                <th className="bg-[#f8f9fa] text-left p-3 text-brand-text-sub font-semibold border-b-2 border-brand-border min-w-[200px]">Địa Chỉ</th>
+                <th className="bg-[#f8f9fa] text-left p-3 text-brand-text-sub font-semibold border-b-2 border-brand-border w-[150px]">CCCD / MST</th>
                 <th className="bg-[#f8f9fa] text-right p-3 text-brand-text-sub font-semibold border-b-2 border-brand-border w-[150px]">Phải Thu (AR)</th>
                 <th className="bg-[#f8f9fa] text-right p-3 text-brand-text-sub font-semibold border-b-2 border-brand-border w-[150px]">Phải Trả (AP)</th>
                 <th className="bg-[#f8f9fa] text-center p-3 text-brand-text-sub font-semibold border-b-2 border-brand-border pr-4 w-[100px]">Thao tác</th>
@@ -277,7 +411,7 @@ export function PartnersPage() {
             <tbody>
               {filteredPartners.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center p-8 text-brand-text-sub italic">
+                  <td colSpan={8} className="text-center p-8 text-brand-text-sub italic">
                     {searchTerm ? `Không tìm thấy kết quả cho "${searchTerm}"` : 'Chưa có đối tác nào. Vui lòng thêm mới.'}
                   </td>
                 </tr>
@@ -292,6 +426,15 @@ export function PartnersPage() {
                   </td>
                   <td className="p-3 border-b border-brand-border font-semibold text-brand-text whitespace-nowrap">{p.name}</td>
                   <td className="p-3 border-b border-brand-border font-medium text-brand-text-sub whitespace-nowrap">{p.phone || '-'}</td>
+                  <td className="p-3 border-b border-brand-border text-brand-text-sub max-w-[200px] truncate" title={p.address || ''}>{p.address || '-'}</td>
+                  
+                  <td className="p-3 border-b border-brand-border text-brand-text-sub whitespace-nowrap text-[12px]">
+                    {p.type === 'CUSTOMER' ? (
+                       p.cccd ? <span className="text-brand-text" title="CCCD">CCCD: {p.cccd}</span> : <span className="text-gray-400 italic">Chưa có CCCD</span>
+                    ) : (
+                       p.mst ? <span className="text-brand-text" title="MST">MST: {p.mst}</span> : <span className="text-gray-400 italic">Chưa có MST</span>
+                    )}
+                  </td>
                   
                   <td className="p-3 border-b border-brand-border text-right whitespace-nowrap">
                     {p.type === 'CUSTOMER' ? (

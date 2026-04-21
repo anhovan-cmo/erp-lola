@@ -39,7 +39,10 @@ export function PartnerDetailModal({ partner, onClose }: PartnerDetailModalProps
                 <span className="text-[13px] text-brand-text-sub font-mono">ID: {partner.id}</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-brand-text mb-1">{partner.name}</h3>
-              <p className="text-[14px] text-brand-text-sub flex items-center gap-2">📞 {partner.phone || 'Chưa cập nhật số điện thoại'}</p>
+              <p className="text-[14px] text-brand-text-sub flex items-center gap-2 mb-1">📞 {partner.phone || 'Chưa cập nhật số điện thoại'}</p>
+              {partner.type === 'CUSTOMER' && <p className="text-[13px] text-brand-text-sub">💳 CCCD: {partner.cccd || <span className="italic text-gray-400">Chưa cập nhật</span>}</p>}
+              {partner.type === 'SUPPLIER' && <p className="text-[13px] text-brand-text-sub">🏢 MST: {partner.mst || <span className="italic text-gray-400">Chưa cập nhật</span>}</p>}
+              <p className="text-[13px] text-brand-text-sub mt-1">📍 Địa chỉ: {partner.address || <span className="italic text-gray-400">Chưa cập nhật</span>}</p>
             </div>
             
             <div className="flex flex-col gap-2 sm:items-end justify-center min-w-[200px] border-t border-dashed border-blue-200 sm:border-t-0 sm:border-l sm:pl-6 pt-4 sm:pt-0 mt-4 sm:mt-0">

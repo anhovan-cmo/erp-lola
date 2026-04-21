@@ -23,6 +23,9 @@ export function ProductList() {
   const [showBrandDropdown, setShowBrandDropdown] = useState(false);
   const [showColDropdown, setShowColDropdown] = useState(false);
   
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  
   const [cols, setCols] = useState(() => {
     const saved = localStorage.getItem('productTableCols');
     if (saved) {
@@ -47,6 +50,10 @@ export function ProductList() {
 
   const normalize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedBrands, stockThreshold, sortStockDir]);
+
   let filteredProducts = useMemo(() => {
     const searchLower = normalize(searchTerm);
     const searchTermsArray = searchLower.split(/\s+/).filter(Boolean);
@@ -85,6 +92,12 @@ export function ProductList() {
 
     return result;
   }, [products, searchTerm, selectedBrands, stockThreshold, sortStockDir]);
+
+  const totalPages = Math.ceil(filteredProducts.length / pageSize);
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredProducts.slice(start, start + pageSize);
+  }, [filteredProducts, currentPage, pageSize]);
 
   const moveCol = (index: number, direction: 'up' | 'down') => {
     const newCols = [...cols];
@@ -306,7 +319,7 @@ export function ProductList() {
             </div>
 
             <div className="flex items-center gap-4 ml-auto">
-              <span className="text-[12px] text-brand-text-sub">Đang hiển thị {filteredProducts.length}/{products.length} SP</span>
+              <span className="text-[12px] text-brand-text-sub">Tổng: {filteredProducts.length} SP</span>
               
               <div className="relative">
                 <button 
@@ -352,12 +365,13 @@ export function ProductList() {
             </div>
           </div>
         </div>
-        <CardContent className="p-0 overflow-x-auto flex-1">
-          <div className="min-w-[800px]">
-          <table className="w-full text-[13px] border-collapse min-w-max">
-            <thead>
-              <tr>
-                {cols.map(col => {
+        <CardContent className="p-0 flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 overflow-auto">
+            <div className="min-w-[800px]">
+              <table className="w-full text-[13px] border-collapse min-w-max">
+                <thead>
+                  <tr>
+                    {cols.map(col => {
                   if (!col.visible) return null;
                   if (col.id === 'stock') {
                     return (
@@ -380,11 +394,11 @@ export function ProductList() {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.length === 0 ? (
+              {paginatedProducts.length === 0 ? (
                 <tr>
                   <td colSpan={cols.filter(c=>c.visible).length} className="p-6 text-center text-brand-text-sub">Không tìm thấy dữ liệu.</td>
                 </tr>
-              ) : filteredProducts.map((product) => (
+              ) : paginatedProducts.map((product) => (
                 <tr key={product.id} onClick={() => setSelectedProduct(product)} className="hover:bg-slate-50 cursor-pointer transition-colors">
                   {cols.map(col => {
                     if (!col.visible) return null;
@@ -432,6 +446,44 @@ export function ProductList() {
               ))}
             </tbody>
           </table>
+            </div>
+          </div>
+          
+          <div className="p-3 border-t border-brand-border bg-white flex flex-wrap items-center justify-between gap-4 shrink-0">
+             <div className="text-[13px] text-brand-text-sub">
+                Hiển thị từ {filteredProducts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filteredProducts.length)} / {filteredProducts.length} sản phẩm
+             </div>
+             <div className="flex items-center gap-2">
+                <select 
+                   value={pageSize}
+                   onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                   className="border border-brand-border rounded-[3px] px-2 py-1 text-[13px] focus:outline-none focus:border-brand-primary cursor-pointer"
+                >
+                   <option value={20}>20/trang</option>
+                   <option value={50}>50/trang</option>
+                   <option value={100}>100/trang</option>
+                   <option value={500}>500/trang</option>
+                </select>
+                <div className="flex gap-1">
+                   <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 border border-brand-border rounded-[3px] text-[13px] hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                   >
+                      Trang trước
+                   </button>
+                   <span className="px-3 py-1 text-[13px] font-medium min-w-[3rem] text-center text-brand-text">
+                     {totalPages === 0 ? 0 : currentPage} / {totalPages}
+                   </span>
+                   <button 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages || totalPages === 0}
+                      className="px-3 py-1 border border-brand-border rounded-[3px] text-[13px] hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                   >
+                      Sang trang
+                   </button>
+                </div>
+             </div>
           </div>
         </CardContent>
       </Card>

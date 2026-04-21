@@ -174,8 +174,8 @@ export function PrintPreviewModal({ transaction, onClose }: PrintPreviewModalPro
                         {showImage && <th style={{ border: '1px solid #000', padding: '4px 2px', textAlign: 'center', width: '50px' }}>Ảnh SP</th>}
                         <th style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center' }}>Tên Hàng</th>
                         <th style={{ border: '1px solid #000', padding: '4px 2px', textAlign: 'center', width: '35px' }}>Số<br/>Lượng</th>
-                        <th style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center', width: '70px' }}>Đơn Giá</th>
-                        <th style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center', width: '75px' }}>Thành Tiền</th>
+                        <th style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center', width: '75px' }}>Đơn Giá</th>
+                        <th style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center', width: '80px' }}>Thành Tiền</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -200,74 +200,45 @@ export function PrintPreviewModal({ transaction, onClose }: PrintPreviewModalPro
                       {/* Footer rows placed inside tbody so they don't repeat on multiple pages like the header does. If keeping together is needed, could use a separate table or avoid page break inside these rows */}
                       <tr style={{ pageBreakInside: 'avoid' }}>
                         <td colSpan={showImage ? 4 : 3} style={{ border: '1px solid #000', padding: '4px 8px', borderRight: 'none', borderBottom: 'none' }}>Tổng Số Lượng:</td>
-                        <td style={{ border: '1px solid #000', borderTop: '1px solid #000', padding: '4px', textAlign: 'center', borderRight: '1px solid #000', borderLeft: '1px solid #000', borderBottom: '1px solid #000' }}>{sumQty}</td>
-                        <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                            <span>Tổng tiền hàng:</span>
-                            <span>{formatCurrency(totalValue)}</span>
-                          </div>
-                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{sumQty}</td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Tổng tiền hàng:</td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{formatCurrency(totalValue)}</td>
                       </tr>
                       <tr style={{ pageBreakInside: 'avoid' }}>
-                        <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
-                        <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                            <span>Số Dư Cũ :</span>
-                            <span>{formatCurrency(currentDebt - debt)}</span>
-                          </div>
-                        </td>
+                        <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: 'none', borderTop: 'none', padding: '0px' }}></td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Số Dư Cũ:</td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{formatCurrency(currentDebt - debt)}</td>
                       </tr>
                       {discount > 0 && (
                         <tr style={{ pageBreakInside: 'avoid' }}>
-                          <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
-                          <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                              <span>Giảm giá :</span>
-                              <span>-{formatCurrency(discount)}</span>
-                            </div>
-                          </td>
+                          <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: 'none', borderTop: 'none', padding: '0px' }}></td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Giảm giá:</td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>-{formatCurrency(discount)}</td>
                         </tr>
                       )}
                       {otherFees > 0 && (
                         <tr style={{ pageBreakInside: 'avoid' }}>
-                          <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
-                          <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                              <span>Phụ phí/Thu khác :</span>
-                              <span>+{formatCurrency(otherFees)}</span>
-                            </div>
-                          </td>
+                          <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: 'none', borderTop: 'none', padding: '0px' }}></td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Phụ phí:</td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>+{formatCurrency(otherFees)}</td>
                         </tr>
                       )}
-                      {/* Khách cần trả (only if there are discounts or fees, otherwise "tổng tiền hàng" is enough. Included to be consistent)*/}
                       {(discount > 0 || otherFees > 0) && (
                         <tr style={{ pageBreakInside: 'avoid' }}>
-                          <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
-                          <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                              <span>Khách Cần Trả :</span>
-                              <span style={{ fontWeight: 'bold' }}>{formatCurrency(totalPayable)}</span>
-                            </div>
-                          </td>
+                          <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: 'none', borderTop: 'none', padding: '0px' }}></td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Cần Trả:</td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(totalPayable)}</td>
                         </tr>
                       )}
                       <tr style={{ pageBreakInside: 'avoid' }}>
-                        <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
-                        <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                            <span>Khách Thanh Toán:</span>
-                            <span>{formatCurrency(amountPaid)}</span>
-                          </div>
-                        </td>
+                        <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: 'none', borderTop: 'none', padding: '0px' }}></td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Thanh Toán:</td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{formatCurrency(amountPaid)}</td>
                       </tr>
                       <tr style={{ pageBreakInside: 'avoid' }}>
-                        <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderBottom: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
-                        <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                            <span>Số dư hiện tại :</span>
-                            <span>{formatCurrency(currentDebt)}</span>
-                          </div>
-                        </td>
+                        <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', borderTop: 'none', padding: '0px' }}></td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Số dư hiện tại:</td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{formatCurrency(currentDebt)}</td>
                       </tr>
                     </tbody>
                   </table>
