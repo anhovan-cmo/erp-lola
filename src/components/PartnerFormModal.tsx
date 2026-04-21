@@ -14,6 +14,9 @@ export function PartnerFormModal({ partner, onClose }: PartnerFormModalProps) {
   
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [cccd, setCccd] = useState('');
+  const [mst, setMst] = useState('');
   const [type, setType] = useState<'CUSTOMER' | 'SUPPLIER'>('CUSTOMER');
   const [saving, setSaving] = useState(false);
 
@@ -21,6 +24,9 @@ export function PartnerFormModal({ partner, onClose }: PartnerFormModalProps) {
     if (partner) {
       setName(partner.name || '');
       setPhone(partner.phone || '');
+      setAddress(partner.address || '');
+      setCccd(partner.cccd || '');
+      setMst(partner.mst || '');
       setType(partner.type || 'CUSTOMER');
     }
   }, [partner]);
@@ -37,12 +43,18 @@ export function PartnerFormModal({ partner, onClose }: PartnerFormModalProps) {
         await updatePartner(partner.id, {
           name: name.trim(),
           phone: phone.trim(),
+          address: address.trim(),
+          cccd: cccd.trim(),
+          mst: mst.trim(),
         });
       } else {
         // Create mode
         await addPartner({
           name: name.trim(),
           phone: phone.trim(),
+          address: address.trim(),
+          cccd: type === 'CUSTOMER' ? cccd.trim() : '',
+          mst: type === 'SUPPLIER' ? mst.trim() : '',
           type,
           totalReceivable: 0,
           totalPayable: 0,
@@ -123,6 +135,43 @@ export function PartnerFormModal({ partner, onClose }: PartnerFormModalProps) {
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 placeholder="Số điện thoại liên hệ..."
+              />
+            </div>
+
+            {type === 'CUSTOMER' && (
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-brand-text-sub">Căn Cước Công Dân (CCCD)</label>
+                <input 
+                  type="text" 
+                  className="w-full border border-brand-border rounded-[3px] px-3 py-2 text-[14px] focus:outline-none focus:border-brand-primary"
+                  value={cccd}
+                  onChange={e => setCccd(e.target.value)}
+                  placeholder="Nhập số CCCD..."
+                />
+              </div>
+            )}
+
+            {type === 'SUPPLIER' && (
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-brand-text-sub">Mã Số Thuế (MST)</label>
+                <input 
+                  type="text" 
+                  className="w-full border border-brand-border rounded-[3px] px-3 py-2 text-[14px] focus:outline-none focus:border-brand-primary"
+                  value={mst}
+                  onChange={e => setMst(e.target.value)}
+                  placeholder="Nhập số MST..."
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-brand-text-sub">Địa chỉ</label>
+              <input 
+                type="text" 
+                className="w-full border border-brand-border rounded-[3px] px-3 py-2 text-[14px] focus:outline-none focus:border-brand-primary"
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                placeholder="Nhập địa chỉ..."
               />
             </div>
           </div>

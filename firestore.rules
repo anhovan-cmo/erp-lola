@@ -37,11 +37,14 @@ service cloud.firestore {
     }
 
     function isValidPartner(data) {
-      return data.keys().hasOnly(['id', 'type', 'name', 'phone', 'totalReceivable', 'totalPayable', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['id', 'type', 'name', 'phone', 'address', 'cccd', 'mst', 'totalReceivable', 'totalPayable', 'createdAt', 'updatedAt'])
         && data.id is string && data.id.size() > 0 && data.id.size() <= 128
         && data.type in ['CUSTOMER', 'SUPPLIER']
         && data.name is string && data.name.size() > 0 && data.name.size() <= 256
         && (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() <= 32))
+        && (!('address' in data) || data.address == null || (data.address is string && data.address.size() <= 500))
+        && (!('cccd' in data) || data.cccd == null || (data.cccd is string && data.cccd.size() <= 32))
+        && (!('mst' in data) || data.mst == null || (data.mst is string && data.mst.size() <= 32))
         && data.totalReceivable is number
         && data.totalPayable is number;
     }
@@ -102,7 +105,7 @@ service cloud.firestore {
         && isValidId(partnerId) 
         && isValidPartner(incoming()) 
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'totalReceivable', 'totalPayable', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'address', 'cccd', 'mst', 'totalReceivable', 'totalPayable', 'updatedAt'])
           || isAdmin()
         )
         && incoming().updatedAt == request.time

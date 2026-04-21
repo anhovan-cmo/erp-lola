@@ -13,9 +13,10 @@ export function PrintPreviewModal({ transaction, onClose }: PrintPreviewModalPro
   const { products, partners, usersList, userProfile } = useAppContext();
   const printRef = useRef<HTMLDivElement>(null);
   
-  const [templateSize, setTemplateSize] = useState<'A4_A5' | 'K80'>('A4_A5');
+  const [templateSize, setTemplateSize] = useState<'A4_A5' | 'K80' | 'SP46'>('SP46');
   const [showImage, setShowImage] = useState<boolean>(true);
   const [customNote, setCustomNote] = useState<string>(transaction.note || '');
+
 
   const txPartner = partners.find(p => p.id === transaction.partnerId);
   const partnerPhone = txPartner?.phone ? ` - ${txPartner.phone}` : '';
@@ -36,9 +37,11 @@ export function PrintPreviewModal({ transaction, onClose }: PrintPreviewModalPro
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Phieu_${transaction.id}`,
-    pageStyle: templateSize === 'K80' 
-      ? `@media print { @page { size: 80mm auto; margin: 0; padding: 0mm; } body { width: 80mm; font-family: monospace; } }`
-      : `@media print { @page { size: A4 portrait; margin: 15mm; } body { font-family: "Times New Roman", serif; } }`
+    pageStyle: templateSize === 'SP46'
+      ? `@media print { @page { size: 100mm 150mm; margin: 3mm; } body { width: 100mm; font-family: "Times New Roman", Times, serif; -webkit-print-color-adjust: exact; margin: 0; } table { page-break-inside: auto; } tr { page-break-inside: avoid; page-break-after: auto; } thead { display: table-header-group; } tfoot { display: table-footer-group; } }`
+      : templateSize === 'K80' 
+      ? `@media print { @page { size: 80mm auto; margin: 0; padding: 0mm; } body { width: 80mm; font-family: monospace; -webkit-print-color-adjust: exact; } table { page-break-inside: auto; } tr { page-break-inside: avoid; page-break-after: auto; } thead { display: table-header-group; } }`
+      : `@media print { @page { size: A4 portrait; margin: 15mm; } body { font-family: "Times New Roman", Times, serif; -webkit-print-color-adjust: exact; } table { page-break-inside: auto; } tr { page-break-inside: avoid; page-break-after: auto; } thead { display: table-header-group; } }`
   });
 
   return (
@@ -61,15 +64,16 @@ export function PrintPreviewModal({ transaction, onClose }: PrintPreviewModalPro
               <label className="block font-semibold text-gray-700 mb-1.5">Mẫu khổ giấy</label>
               <select 
                 value={templateSize} 
-                onChange={(e) => setTemplateSize(e.target.value as 'A4_A5' | 'K80')}
+                onChange={(e) => setTemplateSize(e.target.value as 'A4_A5' | 'K80' | 'SP46')}
                 className="w-full border border-gray-300 rounded p-2 focus:border-brand-primary outline-none"
               >
+                <option value="SP46">Khổ A6 100x150mm (SP46)</option>
                 <option value="A4_A5">Khổ A4 / A5 (Chuẩn)</option>
                 <option value="K80">Khổ 80mm (Máy in bill)</option>
               </select>
             </div>
             
-            {templateSize === 'A4_A5' && (
+            {(templateSize === 'A4_A5' || templateSize === 'SP46') && (
               <div>
                 <label className="flex items-center gap-2 cursor-pointer text-gray-700 font-medium">
                   <input 
@@ -114,16 +118,172 @@ export function PrintPreviewModal({ transaction, onClose }: PrintPreviewModalPro
         {/* Preview Area */}
         <div className="flex-1 overflow-auto p-4 md:p-8 flex justify-center bg-gray-500/10">
           <div className="bg-white shadow-md mx-auto print-preview-container" style={{
-            width: templateSize === 'A4_A5' ? '210mm' : '80mm',
-            minHeight: templateSize === 'A4_A5' ? '297mm' : 'auto',
-            padding: templateSize === 'A4_A5' ? '15mm' : '5mm',
+            width: templateSize === 'A4_A5' ? '210mm' : templateSize === 'SP46' ? '100mm' : '80mm',
+            minHeight: templateSize === 'A4_A5' ? '297mm' : templateSize === 'SP46' ? '150mm' : 'auto',
+            padding: templateSize === 'A4_A5' ? '15mm' : templateSize === 'SP46' ? '5mm' : '5mm',
             margin: '0 auto',
             transformOrigin: 'top center',
           }}>
             <div ref={printRef} className={cn(
               "print-content",
-              templateSize === 'A4_A5' ? 'font-serif text-[14px]' : 'font-mono text-[12px]'
+              templateSize === 'K80' ? 'font-mono text-[12px]' : 'font-serif text-[14px]'
             )}>
+              
+              {/* --- SP46 Template --- */}
+              {templateSize === 'SP46' && (
+                <div style={{ color: '#000', width: '100%', fontFamily: '"Times New Roman", Times, serif' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                    <div style={{ width: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <h1 style={{ margin: 0, fontSize: '34px', fontWeight: 'normal', fontFamily: '"Times New Roman", Times, serif', color: '#000', letterSpacing: '1.5px', lineHeight: '1' }}>LOLA</h1>
+                    </div>
+                    <div style={{ textAlign: 'center', flex: 1, paddingLeft: '0px' }}>
+                       <div style={{ fontWeight: 'bold', fontSize: '18px', textTransform: 'uppercase', marginBottom: '4px' }}>
+                          {transaction.type === 'IMPORT' ? 'HÓA ĐƠN NHẬP KHO' : 'HÓA ĐƠN BÁN HÀNG'}
+                       </div>
+                       <div style={{ fontSize: '12px', marginBottom: '2px' }}>
+                          SỐ HĐ: {transaction.id} - {new Date().toLocaleString('vi-VN', {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric'})}
+                       </div>
+                       <div style={{ fontSize: '13px', fontWeight: 'bold' }}>
+                          KHO LOLA
+                       </div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ fontSize: '12px' }}>
+                    <div style={{ border: '1px solid #000', borderRadius: '3px', padding: '5px 8px', marginBottom: '4px' }}>
+                      - {txPartner?.type === 'SUPPLIER' ? 'NCC:' : 'Khách Hàng:'} {transaction.partnerName || 'Khách vãng lai'} {partnerPhone}
+                    </div>
+                    {((txPartner?.type === 'CUSTOMER' && txPartner.cccd) || (txPartner?.type === 'SUPPLIER' && txPartner.mst) || txPartner?.address) && (
+                    <div style={{ border: '1px solid #000', borderRadius: '3px', padding: '5px 8px', marginBottom: '4px' }}>
+                      - {txPartner.type === 'CUSTOMER' && txPartner.cccd ? `CCCD: ${txPartner.cccd} | ` : ''}{txPartner.type === 'SUPPLIER' && txPartner.mst ? `MST: ${txPartner.mst} | ` : ''}{txPartner.address ? `Địa Chỉ: ${txPartner.address}` : ''}
+                    </div>
+                    )}
+                    <div style={{ border: '1px solid #000', borderRadius: '3px', padding: '5px 8px', marginBottom: '4px' }}>
+                      - NVBH: {creatorName} - Hotline: 0372866986
+                    </div>
+                    <div style={{ border: '1px solid #000', borderRadius: '3px', padding: '5px 8px', marginBottom: '8px' }}>
+                      - Kho: Tầng 1 chung cư Phúc Đạt, 159 QL1K, KP Đông A, P. Đông Hòa, TP.HCM
+                    </div>
+                  </div>
+
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: 'none' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ border: '1px solid #000', padding: '4px 2px', textAlign: 'center', width: '25px' }}>STT</th>
+                        <th style={{ border: '1px solid #000', padding: '4px 2px', textAlign: 'center', width: '60px' }}>Mã Hàng</th>
+                        {showImage && <th style={{ border: '1px solid #000', padding: '4px 2px', textAlign: 'center', width: '50px' }}>Ảnh SP</th>}
+                        <th style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center' }}>Tên Hàng</th>
+                        <th style={{ border: '1px solid #000', padding: '4px 2px', textAlign: 'center', width: '35px' }}>Số<br/>Lượng</th>
+                        <th style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center', width: '70px' }}>Đơn Giá</th>
+                        <th style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center', width: '75px' }}>Thành Tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transaction.items?.map((item, idx) => {
+                         const p = products.find(prod => prod.id === item.productId);
+                         return (
+                           <tr key={idx}>
+                             <td style={{ border: '1px solid #000', padding: '4px 2px', textAlign: 'center' }}>{idx + 1}</td>
+                             <td style={{ border: '1px solid #000', padding: '4px 2px', textAlign: 'center', wordBreak: 'break-all', fontSize: '11px' }}>{item.productId}</td>
+                             {showImage && (
+                               <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'center' }}>
+                                  {p?.image ? <img src={p.image} alt="IMG" style={{ width: '45px', height: '45px', objectFit: 'cover', display: 'block', margin: '0 auto' }} /> : ''}
+                               </td>
+                             )}
+                             <td style={{ border: '1px solid #000', padding: '4px' }}>{item.name}</td>
+                             <td style={{ border: '1px solid #000', padding: '4px 2px', textAlign: 'center' }}>{item.quantity}</td>
+                             <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{formatCurrency(item.price)}</td>
+                             <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{formatCurrency(item.price * item.quantity)}</td>
+                           </tr>
+                         );
+                      })}
+                      {/* Footer rows placed inside tbody so they don't repeat on multiple pages like the header does. If keeping together is needed, could use a separate table or avoid page break inside these rows */}
+                      <tr style={{ pageBreakInside: 'avoid' }}>
+                        <td colSpan={showImage ? 4 : 3} style={{ border: '1px solid #000', padding: '4px 8px', borderRight: 'none', borderBottom: 'none' }}>Tổng Số Lượng:</td>
+                        <td style={{ border: '1px solid #000', borderTop: '1px solid #000', padding: '4px', textAlign: 'center', borderRight: '1px solid #000', borderLeft: '1px solid #000', borderBottom: '1px solid #000' }}>{sumQty}</td>
+                        <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                            <span>Tổng tiền hàng:</span>
+                            <span>{formatCurrency(totalValue)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr style={{ pageBreakInside: 'avoid' }}>
+                        <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
+                        <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                            <span>Số Dư Cũ :</span>
+                            <span>{formatCurrency(currentDebt - debt)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                      {discount > 0 && (
+                        <tr style={{ pageBreakInside: 'avoid' }}>
+                          <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
+                          <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                              <span>Giảm giá :</span>
+                              <span>-{formatCurrency(discount)}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {otherFees > 0 && (
+                        <tr style={{ pageBreakInside: 'avoid' }}>
+                          <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
+                          <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                              <span>Phụ phí/Thu khác :</span>
+                              <span>+{formatCurrency(otherFees)}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {/* Khách cần trả (only if there are discounts or fees, otherwise "tổng tiền hàng" is enough. Included to be consistent)*/}
+                      {(discount > 0 || otherFees > 0) && (
+                        <tr style={{ pageBreakInside: 'avoid' }}>
+                          <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
+                          <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                              <span>Khách Cần Trả :</span>
+                              <span style={{ fontWeight: 'bold' }}>{formatCurrency(totalPayable)}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      <tr style={{ pageBreakInside: 'avoid' }}>
+                        <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
+                        <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                            <span>Khách Thanh Toán:</span>
+                            <span>{formatCurrency(amountPaid)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr style={{ pageBreakInside: 'avoid' }}>
+                        <td colSpan={showImage ? 5 : 4} style={{ borderLeft: '1px solid #000', borderBottom: '1px solid #000', borderRight: '1px solid #000', padding: '0px' }}></td>
+                        <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                            <span>Số dư hiện tại :</span>
+                            <span>{formatCurrency(currentDebt)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  
+                  {customNote && (
+                    <div style={{ border: '1px solid #000', borderRadius: '3px', padding: '5px 8px', fontSize: '12px', marginTop: '10px' }}>
+                      - Ghi Chú: {customNote}
+                    </div>
+                  )}
+
+                  <div style={{ textAlign: 'center', marginTop: '15px', fontWeight: 'bold', fontSize: '14px', fontStyle: 'italic', paddingBottom: '15px' }}>
+                    Lola Xin Cảm Ơn Quý Khách
+                  </div>
+                </div>
+              )}
+
               {/* --- K80 Template --- */}
               {templateSize === 'K80' && (
                 <div style={{ width: '70mm', margin: '0 auto', color: '#000' }}>
@@ -141,8 +301,11 @@ export function PrintPreviewModal({ transaction, onClose }: PrintPreviewModalPro
                       <span>Số: {transaction.id}</span>
                       <span>{new Date().toLocaleDateString('vi-VN')}</span>
                     </div>
-                    <div>KH: {transaction.partnerName || 'Khách vãng lai'}</div>
+                    <div>{txPartner?.type === 'SUPPLIER' ? 'NCC:' : 'KH:'} {transaction.partnerName || 'Khách vãng lai'}</div>
                     {txPartner?.phone && <div>SĐT: {txPartner.phone}</div>}
+                    {txPartner?.type === 'CUSTOMER' && txPartner.cccd && <div>CCCD: {txPartner.cccd}</div>}
+                    {txPartner?.type === 'SUPPLIER' && txPartner.mst && <div>MST: {txPartner.mst}</div>}
+                    {txPartner?.address && <div>ĐC: {txPartner.address}</div>}
                     <div>NV: {creatorName}</div>
                   </div>
                   
@@ -239,11 +402,15 @@ export function PrintPreviewModal({ transaction, onClose }: PrintPreviewModalPro
                   
                   <div style={{ border: '1px dashed #ccc', borderRadius: '4px', padding: '10px 15px', marginBottom: '15px', fontSize: '14px', display: 'flex', justifyContent: 'space-between' }}>
                     <div>
-                      <p style={{ margin: '0 0 5px 0' }}><strong>Khách Hàng/Đối Tác:</strong> {transaction.partnerName || 'Khách vãng lai'} {partnerPhone}</p>
+                      <p style={{ margin: '0 0 5px 0' }}><strong>{txPartner?.type === 'SUPPLIER' ? 'Nhà Cung Cấp:' : 'Khách Hàng/Đối Tác:'}</strong> {transaction.partnerName || 'Khách vãng lai'}</p>
+                      {txPartner?.phone && <p style={{ margin: '0 0 5px 0' }}><strong>SĐT:</strong> {txPartner.phone}</p>}
+                      {txPartner?.type === 'CUSTOMER' && txPartner.cccd && <p style={{ margin: '0 0 5px 0' }}><strong>CCCD:</strong> {txPartner.cccd}</p>}
+                      {txPartner?.type === 'SUPPLIER' && txPartner.mst && <p style={{ margin: '0 0 5px 0' }}><strong>MST:</strong> {txPartner.mst}</p>}
+                      {txPartner?.address && <p style={{ margin: '0 0 5px 0' }}><strong>Địa chỉ:</strong> {txPartner.address}</p>}
                       {customNote && <p style={{ margin: 0 }}><strong>Ghi chú:</strong> {customNote}</p>}
                     </div>
                     <div>
-                      <p style={{ margin: '0 0 5px 0' }}><strong>Nhân viên:</strong> {creatorName}</p>
+                      <p style={{ margin: '0 0 5px 0' }}><strong>Nhân viên lập phiếu:</strong> {creatorName}</p>
                     </div>
                   </div>
 

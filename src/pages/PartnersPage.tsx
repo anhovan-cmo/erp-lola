@@ -104,6 +104,9 @@ export function PartnersPage() {
             if (!name) continue;
 
             const phone = (row['Điện thoại'] || row['SĐT'] || row['phone'] || '').trim();
+            const address = (row['Địa chỉ'] || row['address'] || '').trim();
+            const cccd = (row['CCCD'] || row['CMND'] || row['cccd'] || '').trim();
+            const mst = (row['MST'] || row['Mã số thuế'] || row['mst'] || '').trim();
             const rawType = (row['Phân loại'] || row['Loại'] || row['type'] || '').trim().toLowerCase();
             
             let type: 'CUSTOMER' | 'SUPPLIER' = 'CUSTOMER';
@@ -126,6 +129,9 @@ export function PartnersPage() {
               id: ptRef.id,
               name: name.substring(0, 256),
               phone: phone.substring(0, 32),
+              address: address.substring(0, 500),
+              cccd: type === 'CUSTOMER' ? cccd.substring(0, 32) : '',
+              mst: type === 'SUPPLIER' ? mst.substring(0, 32) : '',
               type,
               totalReceivable: type === 'CUSTOMER' ? debtVal : 0,
               totalPayable: type === 'SUPPLIER' ? debtVal : 0,
