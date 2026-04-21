@@ -1,7 +1,6 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import fetch from "node-fetch"; // Native fetch is available in Node 18+, but we can use global fetch
 
 const KIOTVIET_CLIENT_ID = process.env.KIOTVIET_CLIENT_ID || "dbae08de-7391-412d-b2f3-bdffc06f1f5a";
 const KIOTVIET_CLIENT_SECRET = process.env.KIOTVIET_CLIENT_SECRET || "837AB25327544A21C9143381DFD33AC7C3668E97";
@@ -25,7 +24,7 @@ async function getKiotVietToken() {
     throw new Error(`Failed to get KiotViet token: ${errorText}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as any;
   return data.access_token;
 }
 
@@ -44,7 +43,7 @@ async function fetchKiotVietPath(token: string, path: string) {
     throw new Error(`KiotViet API Error: ${errorText}`);
   }
 
-  return await response.json();
+  return await response.json() as any;
 }
 
 async function startServer() {

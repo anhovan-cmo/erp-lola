@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '../components/ui/card';
 import { useAppContext, Partner } from '../context/AppContext';
 import { formatCurrency } from '../lib/utils';
@@ -18,9 +18,17 @@ export function PartnersPage() {
   const [syncingKiotViet, setSyncingKiotViet] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{status: 'IDLE'|'FETCHING'|'SAVING'|'DONE'|'ERROR', saved: number, total: number, message: string}>({status: 'IDLE', saved: 0, total: 0, message: ''});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasAutoSynced = useRef(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirmPartner, setDeleteConfirmPartner] = useState<{id: string, name: string} | null>(null);
+
+  useEffect(() => {
+    if (!hasAutoSynced.current) {
+      hasAutoSynced.current = true;
+      executeSyncKiotViet(true);
+    }
+  }, []);
 
   const filteredPartners = useMemo(() => {
     return partners.filter(p => {
@@ -81,8 +89,8 @@ export function PartnersPage() {
     }
   };
 
-  const executeSyncKiotViet = async () => {
-    if (!window.confirm('Xác nhận đồng bộ dữ liệu Khách hàng & Nhà cung cấp từ KiotViet? Quá trình này sẽ lấy dữ liệu nợ và làm mới danh sách đối tác.')) return;
+  const executeSyncKiotViet = async (isAuto = false) => {
+    if (!isAuto && !window.confirm('Xác nhận đồng bộ dữ liệu Khách hàng & Nhà cung cấp từ KiotViet? Quá trình này sẽ lấy dữ liệu nợ và làm mới danh sách đối tác.')) return;
     setSyncingKiotViet(true);
     setSyncProgress({ status: 'FETCHING', saved: 0, total: 0, message: 'Đang kết nối KiotViet và tải danh sách...' });
     
@@ -267,7 +275,7 @@ export function PartnersPage() {
 
           <button 
             disabled={syncingKiotViet}
-            onClick={executeSyncKiotViet}
+            onClick={() => executeSyncKiotViet(false)}
             className="bg-[#005fb8] text-white border border-[#005fb8] flex items-center justify-center py-2 px-3 rounded-[3px] font-semibold text-[13px] hover:bg-[#004a94] transition min-w-[100px] flex-1 sm:flex-none disabled:opacity-50"
             title="Đồng bộ tự động từ KiotViet"
           >

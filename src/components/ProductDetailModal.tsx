@@ -3,6 +3,7 @@ import { X, Trash2, ArrowLeftRight } from 'lucide-react';
 import { Product, useAppContext } from '../context/AppContext';
 import { formatCurrency, cn } from '../lib/utils';
 import { handleFirestoreError } from '../lib/firebase/errors';
+import { auth } from '../lib/firebase/config';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -30,7 +31,7 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
       await deleteProduct(product.id);
       onClose();
     } catch (e: any) {
-      handleFirestoreError(e);
+      handleFirestoreError(e, 'delete', 'products', auth.currentUser);
       alert("Lỗi khi xóa: " + e.message);
     }
   };

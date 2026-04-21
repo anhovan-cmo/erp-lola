@@ -3,6 +3,7 @@ import { X, Search } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency } from '../lib/utils';
 import { handleFirestoreError } from '../lib/firebase/errors';
+import { auth } from '../lib/firebase/config';
 
 interface PaymentModalProps {
   onClose: () => void;
@@ -48,7 +49,7 @@ export function PaymentModal({ onClose }: PaymentModalProps) {
       await updatePartnerDebt(selectedPartnerId, amount, debtType);
       onClose();
     } catch (e: any) {
-       handleFirestoreError(e);
+       handleFirestoreError(e, 'update', 'partners', auth.currentUser);
        alert("Có lỗi xảy ra: " + e.message);
     } finally {
       setSaving(false);
