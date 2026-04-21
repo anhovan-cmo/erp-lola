@@ -5,8 +5,10 @@ import { UserProfile, UserPermissions, AppPermission, DEFAULT_PERMISSIONS } from
 const MODULES = [
   { id: 'dashboard', label: 'Tổng Quan Dashboard' },
   { id: 'products', label: 'Quản Lý Tồn Kho' },
-  { id: 'transactions', label: 'Nhập / Xuất Kho' },
-  { id: 'debts', label: 'Công Nợ Thu Trả' },
+  { id: 'imports', label: 'Quản Lý Nhập Kho' },
+  { id: 'exports', label: 'Quản Lý Xuất Kho' },
+  { id: 'receivables', label: 'Công Nợ Phải Thu' },
+  { id: 'payables', label: 'Công Nợ Phải Trả' },
   { id: 'partners', label: 'Khách Hàng & NCC' },
   { id: 'users', label: 'Quản Lý Nhân Viên' },
   { id: 'logs', label: 'Nhật Ký Hoạt Động' },

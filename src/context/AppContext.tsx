@@ -195,13 +195,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!userProfile) return false;
     if (userProfile.role === 'ADMIN') return true;
     
-    if (userProfile.permissions && userProfile.permissions[module]) {
-      return !!userProfile.permissions[module][action];
+    let checkModule = module;
+    if (userProfile.permissions) {
+      if (userProfile.permissions[checkModule] !== undefined) {
+        return !!userProfile.permissions[checkModule]?.[action];
+      }
+      
+      // Legacy fallback
+      if (checkModule === 'imports' || checkModule === 'exports') {
+        if (userProfile.permissions['transactions'] !== undefined) {
+          return !!userProfile.permissions['transactions']?.[action];
+        }
+      }
+      if (checkModule === 'receivables' || checkModule === 'payables') {
+        if (userProfile.permissions['debts'] !== undefined) {
+          return !!userProfile.permissions['debts']?.[action];
+        }
+      }
     }
     
+    // Fallback to defaults
     const defaults = DEFAULT_PERMISSIONS[userProfile.role] || DEFAULT_PERMISSIONS['PENDING'];
-    if (defaults[module]) {
-      return !!defaults[module][action];
+    if (defaults[checkModule] !== undefined) {
+      return !!defaults[checkModule][action];
     }
     
     return false;

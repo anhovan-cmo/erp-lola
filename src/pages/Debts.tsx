@@ -7,7 +7,7 @@ import { PaymentModal } from '../components/PaymentModal';
 import { DebtDetailModal } from '../components/DebtDetailModal';
 import Papa from 'papaparse';
 
-export function Debts() {
+export function Debts({ type }: { type: 'RECEIVABLE' | 'PAYABLE' }) {
   const { partners } = useAppContext();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
@@ -17,6 +17,10 @@ export function Debts() {
 
   const filteredPartners = useMemo(() => {
     return partners.filter(p => {
+      // Filter by type early
+      if (type === 'RECEIVABLE' && p.type !== 'CUSTOMER') return false;
+      if (type === 'PAYABLE' && p.type !== 'SUPPLIER') return false;
+
       if (!searchTerm) return true;
       const term = searchTerm.toLowerCase();
       return p.name.toLowerCase().includes(term) || (p.phone && p.phone.toLowerCase().includes(term));
@@ -28,7 +32,7 @@ export function Debts() {
        const valB = b.type === 'CUSTOMER' ? b.totalReceivable : b.totalPayable;
        return sortOrder === 'desc' ? valB - valA : valA - valB;
     });
-  }, [partners, searchTerm, sortOrder]);
+  }, [partners, searchTerm, sortOrder, type]);
 
   const customers = filteredPartners.filter(p => p.type === 'CUSTOMER');
   const suppliers = filteredPartners.filter(p => p.type === 'SUPPLIER');
@@ -65,7 +69,9 @@ export function Debts() {
   return (
     <>
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <h1 className="text-[20px] md:text-[24px] font-semibold uppercase">CÔNG NỢ KHÁCH HÀNG & NHÀ CUNG CẤP</h1>
+        <h1 className="text-[20px] md:text-[24px] font-semibold uppercase">
+          {type === 'RECEIVABLE' ? 'CÔNG NỢ PHẢI THU KHÁCH HÀNG' : 'CÔNG NỢ PHẢI TRẢ NHÀ CUNG CẤP'}
+        </h1>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto overflow-hidden">
           <div className="relative flex-1 sm:w-64 shrink-0">
             <Search size={18} className="absolute left-3 top-2.5 text-gray-400" />
@@ -104,7 +110,8 @@ export function Debts() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0 pb-4 overflow-y-auto">
+      <div className="flex flex-1 min-h-0 pb-4 overflow-y-auto">
+        {type === 'RECEIVABLE' ? (
         <Card className="flex flex-col flex-1 overflow-hidden border-l-4 border-brand-success rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] bg-[#ffffff] min-h-[300px]">
           <div className="p-4 border-b border-brand-border flex justify-between items-center bg-[#f8f9fa]">
             <h3 className="text-[15px] sm:text-[16px] font-semibold flex items-center gap-2">
@@ -144,7 +151,7 @@ export function Debts() {
             </div>
           </CardContent>
         </Card>
-
+        ) : (
         <Card className="flex flex-col flex-1 overflow-hidden border-l-4 border-brand-danger rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] bg-[#ffffff] min-h-[300px]">
           <div className="p-4 border-b border-brand-border flex justify-between items-center bg-[#f8f9fa]">
             <h3 className="text-[15px] sm:text-[16px] font-semibold flex items-center gap-2">
@@ -184,6 +191,7 @@ export function Debts() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
       
       {showPaymentModal && <PaymentModal onClose={() => setShowPaymentModal(false)} />}

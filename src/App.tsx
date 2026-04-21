@@ -62,8 +62,10 @@ function AppContent() {
     switch (activeTab) {
       case 'dashboard': return <Dashboard />;
       case 'products': return <ProductList />;
-      case 'transactions': return <Transactions />;
-      case 'debts': return <Debts />;
+      case 'imports': return <Transactions type="IMPORT" />;
+      case 'exports': return <Transactions type="EXPORT" />;
+      case 'receivables': return <Debts type="RECEIVABLE" />;
+      case 'payables': return <Debts type="PAYABLE" />;
       case 'partners': return <PartnersPage />;
       case 'users': return <UsersPage />;
       case 'logs': return <ActivityLogsPage />;

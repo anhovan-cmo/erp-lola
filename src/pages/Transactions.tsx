@@ -6,10 +6,12 @@ import { TransactionFormModal } from '../components/TransactionFormModal';
 import { TransactionDetailModal } from '../components/TransactionDetailModal';
 import { Trash2 } from 'lucide-react';
 
-export function Transactions() {
+export function Transactions({ type }: { type: 'IMPORT' | 'EXPORT' }) {
   const { transactions, deleteTransaction, userProfile } = useAppContext();
   const [modalType, setModalType] = useState<'IMPORT' | 'EXPORT' | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+  const filteredTransactions = transactions.filter(t => t.type === type);
 
   const handleDelete = async (e: React.MouseEvent, tx: Transaction) => {
     e.stopPropagation(); // Ngăn mở modal chi tiết
@@ -39,20 +41,26 @@ export function Transactions() {
   return (
     <>
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
-        <h1 className="text-[20px] md:text-[24px] font-semibold uppercase">Nhập / Xuất Kho</h1>
+        <h1 className="text-[20px] md:text-[24px] font-semibold uppercase">
+          {type === 'IMPORT' ? 'Quản Lý Nhập Kho' : 'Quản Lý Xuất Kho'}
+        </h1>
         <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-          <button 
-            onClick={() => setModalType('IMPORT')}
-            className="bg-brand-tag-in-bg text-brand-tag-in-text border border-[#b3ebd3] py-2 px-4 rounded-[3px] font-semibold text-[13px] hover:bg-green-100 transition flex-1 sm:flex-none"
-          >
-            + Nhập Kho
-          </button>
-          <button 
-            onClick={() => setModalType('EXPORT')}
-            className="bg-brand-primary text-white border-none py-2 px-4 rounded-[3px] font-semibold text-[13px] hover:bg-blue-700 transition flex-1 sm:flex-none"
-          >
-            + Xuất Kho
-          </button>
+          {type === 'IMPORT' && (
+            <button 
+              onClick={() => setModalType('IMPORT')}
+              className="bg-brand-tag-in-bg text-brand-tag-in-text border border-[#b3ebd3] py-2 px-4 rounded-[3px] font-semibold text-[13px] hover:bg-green-100 transition flex-1 sm:flex-none"
+            >
+              + Nhập Kho
+            </button>
+          )}
+          {type === 'EXPORT' && (
+            <button 
+              onClick={() => setModalType('EXPORT')}
+              className="bg-brand-primary text-white border-none py-2 px-4 rounded-[3px] font-semibold text-[13px] hover:bg-blue-700 transition flex-1 sm:flex-none"
+            >
+              + Xuất Kho
+            </button>
+          )}
         </div>
       </header>
 
@@ -73,7 +81,7 @@ export function Transactions() {
       <Card className="flex flex-col flex-1 overflow-hidden rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] border-brand-border mt-2">
         <div className="p-4 border-b border-brand-border flex justify-between items-center bg-brand-card">
           <h3 className="text-[15px] sm:text-[16px] font-semibold">Giao Dịch Gần Đây</h3>
-          <div className="text-[12px] text-brand-text-sub">Đang hiển thị {transactions.length} giao dịch</div>
+          <div className="text-[12px] text-brand-text-sub">Đang hiển thị {filteredTransactions.length} giao dịch</div>
         </div>
         <CardContent className="p-0 overflow-x-auto flex-1">
           <div className="min-w-[700px]">
@@ -90,7 +98,12 @@ export function Transactions() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((tx) => (
+              {filteredTransactions.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-gray-500 italic">Không có giao dịch nào.</td>
+                </tr>
+              )}
+              {filteredTransactions.map((tx) => (
                 <tr key={tx.id} onClick={() => setSelectedTransaction(tx)} className="hover:bg-slate-50 cursor-pointer transition-colors">
                   <td className="p-3 pl-4 border-b border-brand-border text-brand-text-sub whitespace-nowrap">{tx.date}</td>
                   <td className="p-3 border-b border-brand-border font-semibold text-brand-text whitespace-nowrap">{tx.id}</td>

@@ -121,6 +121,16 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
   const handleSave = async () => {
     if (cart.length === 0) return alert('Vui lòng chọn ít nhất 1 sản phẩm');
     
+    // Kiểm tra cấm xuất âm
+    if (type === 'EXPORT') {
+      for (const item of cart) {
+        if (item.quantity > item.stock) {
+          alert(`Lỗi: Sản phẩm "${item.name}" vượt quá số lượng tồn kho (Tồn: ${item.stock}, Xuất: ${item.quantity}). Không được phép xuất âm.`);
+          return;
+        }
+      }
+    }
+
     const amountPaid = parseNumberInput(amountPaidStr);
     const debtAmount = totalPayable - amountPaid;
     if (debtAmount > 0 && !selectedPartnerId) {
