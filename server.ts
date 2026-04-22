@@ -2,6 +2,9 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 
+// Bypass TLS validation for KiotViet API cert misconfiguration
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const KIOTVIET_CLIENT_ID = process.env.KIOTVIET_CLIENT_ID || "dbae08de-7391-412d-b2f3-bdffc06f1f5a";
 const KIOTVIET_CLIENT_SECRET = process.env.KIOTVIET_CLIENT_SECRET || "837AB25327544A21C9143381DFD33AC7C3668E97";
 const KIOTVIET_RETAILER = process.env.KIOTVIET_RETAILER || "fugalo";
@@ -57,15 +60,37 @@ async function startServer() {
     try {
       const token = await getKiotVietToken();
       
-      // Fetch customers & suppliers from KiotViet
-      // Getting 100 items for simplicity block for this demo.
-      const customersData = await fetchKiotVietPath(token, "customers?pageSize=100");
-      const suppliersData = await fetchKiotVietPath(token, "suppliers?pageSize=100");
+      const fetchAll = async (endpoint: string, maxPages = 10) => {
+        let allData: any[] = [];
+        let hasMore = true;
+
+        while (hasMore && allData.length < maxPages * 100) {
+          const skip = allData.length;
+          const url = `${endpoint}?pageSize=100&skip=${skip}`;
+          const responseData = await fetchKiotVietPath(token, url);
+          
+          if (responseData && responseData.data && responseData.data.length > 0) {
+            allData = allData.concat(responseData.data);
+            if (responseData.data.length < 100) {
+               hasMore = false;
+            } else {
+               // Delay 300ms to avoid breaking KiotViet rate limits (Error 503 from KiotViet)
+               await new Promise(r => setTimeout(r, 300));
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const customersData = await fetchAll("customers");
+      const suppliersData = await fetchAll("suppliers");
 
       res.json({
         success: true,
-        customers: customersData.data || [],
-        suppliers: suppliersData.data || []
+        customers: customersData,
+        suppliers: suppliersData
       });
     } catch (error: any) {
       console.error("Sync Error:", error);

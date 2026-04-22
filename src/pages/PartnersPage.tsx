@@ -23,12 +23,19 @@ export function PartnersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirmPartner, setDeleteConfirmPartner] = useState<{id: string, name: string} | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
   useEffect(() => {
     if (!hasAutoSynced.current) {
       hasAutoSynced.current = true;
       executeSyncKiotViet(true);
     }
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const filteredPartners = useMemo(() => {
     return partners.filter(p => {
@@ -39,6 +46,9 @@ export function PartnersPage() {
       return matchName || matchPhone;
     });
   }, [partners, searchTerm]);
+
+  const totalPages = Math.ceil(filteredPartners.length / itemsPerPage);
+  const paginatedPartners = filteredPartners.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleEdit = (partner: Partner) => {
     setEditingPartner(partner);
@@ -96,6 +106,11 @@ export function PartnersPage() {
     
     try {
       const res = await fetch('/api/kiotviet/sync-partners');
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+         throw new Error("Lỗi API (máy chủ có thể đang khởi động lại). Vui lòng thử lại sau ít phút.");
+      }
+      
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Server lỗi không rõ nguyên nhân');
 
@@ -108,26 +123,23 @@ export function PartnersPage() {
       const now = serverTimestamp();
 
       const processItem = async (item: any, type: 'CUSTOMER' | 'SUPPLIER') => {
-        const idStr = String(item.id || item.code || Math.random());
-        const ptRef = doc(collection(db, 'partners'));
+        const idStr = String(item.id || item.code || `kv_${Math.random().toString(36).substring(2, 9)}`);
+        const ptRef = doc(db, 'partners', idStr);
         const name = (item.name || 'Khách KiotViet').substring(0, 256);
         const phone = (item.contactNumber || item.phone || '').substring(0, 32);
         const address = (item.address || '').substring(0, 500);
         const debt = Number(item.debt || 0);
 
         batch.set(ptRef, {
-          id: ptRef.id,
+          id: idStr,
           name,
           phone,
           address,
-          cccd: '',
-          mst: '',
           type,
           totalReceivable: type === 'CUSTOMER' ? debt : 0,
           totalPayable: type === 'SUPPLIER' ? debt : 0,
-          createdAt: now,
           updatedAt: now
-        });
+        }, { merge: true });
         count++;
 
         if (count % 20 === 0) { // Batch at 20 so progress bar triggers visually fast
@@ -306,50 +318,57 @@ export function PartnersPage() {
       </header>
 
       {syncProgress.status !== 'IDLE' && (
-        <div className="fixed inset-0 bg-[rgba(9,30,66,0.7)] flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-[6px] w-full max-w-[400px] shadow-2xl flex flex-col p-6 animate-in fade-in zoom-in duration-200">
-            <h2 className="text-[18px] font-bold text-brand-text text-center mb-4">
-              Đồng Bộ KiotViet
-            </h2>
-            
-            <div className="flex flex-col items-center justify-center gap-4 py-4">
-              {syncProgress.status === 'FETCHING' && (
-                 <div className="w-10 h-10 border-4 border-[#005fb8] border-t-transparent rounded-full animate-spin"></div>
-              )}
-              {syncProgress.status === 'SAVING' && (
-                 <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
-                   <div 
-                     className="bg-[#005fb8] h-2.5 rounded-full transition-all duration-300 relative overflow-hidden" 
-                     style={{ width: `${Math.max(5, (syncProgress.saved / syncProgress.total) * 100)}%` }}
-                   >
-                     <div className="absolute top-0 left-0 right-0 bottom-0 bg-white/20 animate-pulse"></div>
-                   </div>
-                 </div>
-              )}
-              {syncProgress.status === 'DONE' && (
-                 <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
-                 </div>
-              )}
+        <div className="fixed bottom-6 right-6 z-[100] w-[350px] bg-white rounded-[6px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[14px] font-bold text-brand-text flex items-center gap-2">
+                <svg className="w-4 h-4 text-[#005fb8]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Đồng Bộ KiotViet
+              </h3>
               {syncProgress.status === 'ERROR' && (
-                 <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
-                   <X size={24} strokeWidth={3} />
-                 </div>
+                <button 
+                  onClick={() => { setSyncProgress({status: 'IDLE', saved: 0, total:0, message: ''}); setSyncingKiotViet(false); }}
+                  className="text-slate-400 hover:text-slate-600 p-1"
+                >
+                  <X size={16} />
+                </button>
               )}
-              
-              <p className={`text-center font-medium ${syncProgress.status === 'ERROR' ? 'text-red-500' : 'text-brand-text-sub'} text-[14px]`}>
-                {syncProgress.message}
-              </p>
             </div>
             
-            {syncProgress.status === 'ERROR' && (
-              <button 
-                onClick={() => { setSyncProgress({status: 'IDLE', saved: 0, total:0, message: ''}); setSyncingKiotViet(false); }}
-                className="mt-4 w-full py-2 bg-slate-100 text-brand-text font-semibold rounded-[3px] hover:bg-slate-200"
-              >
-                Đóng
-              </button>
-            )}
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 shrink-0">
+                {syncProgress.status === 'FETCHING' && (
+                   <div className="w-5 h-5 border-2 border-[#005fb8] border-t-transparent rounded-full animate-spin"></div>
+                )}
+                {syncProgress.status === 'SAVING' && (
+                   <div className="w-5 h-5 border-2 border-[#005fb8] border-t-transparent rounded-full animate-spin"></div>
+                )}
+                {syncProgress.status === 'DONE' && (
+                   <div className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                   </div>
+                )}
+                {syncProgress.status === 'ERROR' && (
+                   <div className="w-5 h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+                   </div>
+                )}
+              </div>
+              
+              <div className="flex-1">
+                <p className={`text-[13px] leading-tight ${syncProgress.status === 'ERROR' ? 'text-red-600' : 'text-slate-600'}`}>
+                  {syncProgress.message}
+                </p>
+                {syncProgress.status === 'SAVING' && (
+                   <div className="mt-2 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
+                     <div 
+                       className="bg-[#005fb8] h-1.5 rounded-full transition-all duration-300" 
+                       style={{ width: `${Math.max(2, (syncProgress.saved / syncProgress.total) * 100)}%` }}
+                     ></div>
+                   </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -417,13 +436,13 @@ export function PartnersPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredPartners.length === 0 ? (
+              {paginatedPartners.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center p-8 text-brand-text-sub italic">
                     {searchTerm ? `Không tìm thấy kết quả cho "${searchTerm}"` : 'Chưa có đối tác nào. Vui lòng thêm mới.'}
                   </td>
                 </tr>
-              ) : filteredPartners.map((p) => (
+              ) : paginatedPartners.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                   <td className="p-3 pl-4 border-b border-brand-border whitespace-nowrap">
                     {p.type === 'CUSTOMER' ? (
@@ -479,6 +498,30 @@ export function PartnersPage() {
           </table>
           </div>
         </CardContent>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-brand-border bg-white">
+            <span className="text-[13px] text-brand-text-sub">
+              Hiển thị {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredPartners.length)} trong tổng số {filteredPartners.length}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                className="px-3 py-1 rounded border border-slate-300 text-[13px] disabled:opacity-50"
+              >
+                Trước
+              </button>
+              <span className="px-3 text-[13px] font-medium">Trang {currentPage}</span>
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                className="px-3 py-1 rounded border border-slate-300 text-[13px] disabled:opacity-50"
+              >
+                Tiếp
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {detailPartner && (
