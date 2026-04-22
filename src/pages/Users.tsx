@@ -3,10 +3,12 @@ import { Card, CardContent } from '../components/ui/card';
 import { useAppContext, Role, UserProfile } from '../context/AppContext';
 import { ShieldAlert, Trash2, ShieldCheck } from 'lucide-react';
 import { UserPermissionModal } from '../components/UserPermissionModal';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export function UsersPage() {
   const { usersList, updateUserRole, updateUserPermissions, userProfile, deleteUser } = useAppContext();
   const [selectedUserForPerms, setSelectedUserForPerms] = useState<UserProfile | null>(null);
+  const [userToDelete, setUserToDelete] = useState<{id: string, name: string} | null>(null);
 
   if (userProfile?.role !== 'ADMIN') {
     return (
@@ -37,15 +39,18 @@ export function UsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    if (confirm(`Bạn có chắc chắn muốn XÓA vĩnh viễn tài khoản của "${userName}"?`)) {
-      try {
-        await deleteUser(userId);
-        alert('Đã xóa người dùng thành công.');
-      } catch (err: any) {
-        alert('Lỗi: ' + err.message);
-      }
+  const handleDeleteUserClick = (userId: string, userName: string) => {
+    setUserToDelete({ id: userId, name: userName });
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    try {
+      await deleteUser(userToDelete.id);
+    } catch (err: any) {
+      alert('Lỗi: ' + err.message);
     }
+    setUserToDelete(null);
   };
 
   return (
@@ -105,7 +110,7 @@ export function UsersPage() {
                     <td className="px-4 py-3 border-b border-brand-border text-center">
                       <button 
                         disabled={u.id === userProfile.id}
-                        onClick={() => handleDeleteUser(u.id, u.name)}
+                        onClick={() => handleDeleteUserClick(u.id, u.name)}
                         className={`p-1.5 rounded transition-colors ${u.id === userProfile.id ? 'opacity-30 cursor-not-allowed' : 'text-brand-danger hover:bg-red-50'}`}
                         title={u.id === userProfile.id ? "Không thể tự xóa user của mình" : "Xóa nhân viên"}
                       >
@@ -127,6 +132,18 @@ export function UsersPage() {
           onSave={handleSavePerms}
         />
       )}
+
+      <ConfirmModal
+        isOpen={!!userToDelete}
+        title="Xác nhận xóa tài khoản"
+        message={
+          <>Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản <strong>{userToDelete?.name}</strong> không? Hành động này không thể hoàn tác.</>
+        }
+        confirmText="Xóa tài khoản"
+        cancelText="Hủy"
+        onConfirm={confirmDeleteUser}
+        onCancel={() => setUserToDelete(null)}
+      />
     </>
   );
 }

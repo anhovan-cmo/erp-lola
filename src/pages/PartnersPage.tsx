@@ -5,6 +5,7 @@ import { formatCurrency } from '../lib/utils';
 import { Edit2, Trash2, Upload, Search, X, Eye } from 'lucide-react';
 import { PartnerFormModal } from '../components/PartnerFormModal';
 import { PartnerDetailModal } from '../components/PartnerDetailModal';
+import { ConfirmModal } from '../components/ConfirmModal';
 import Papa from 'papaparse';
 import { db, auth } from '../lib/firebase/config';
 import { doc, writeBatch, serverTimestamp, collection } from 'firebase/firestore';
@@ -114,7 +115,52 @@ export function PartnersPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Server lỗi không rõ nguyên nhân');
 
-      const totalItems = (data.customers?.length || 0) + (data.suppliers?.length || 0);
+      let customers = data.customers || [];
+      let suppliers = data.suppliers || [];
+
+      if (data.isMock) {
+        setSyncProgress({ status: 'FETCHING', saved: 0, total: 0, message: 'Đang dùng Dữ liệu Demo giả lập Nợ...' });
+        await new Promise(r => setTimeout(r, 1500));
+        
+        // Generate mock data reflecting existing partners so debt actually updates!
+        customers = partners.filter(p => p.type === 'CUSTOMER').map(p => ({
+          id: p.id,
+          code: p.id,
+          name: p.name,
+          contactNumber: p.phone,
+          address: p.address,
+          debt: Math.floor(Math.random() * 50) * 100000 + 500000 // 500k to 5.5M
+        }));
+
+        suppliers = partners.filter(p => p.type === 'SUPPLIER').map(p => ({
+          id: p.id,
+          code: p.id,
+          name: p.name,
+          contactNumber: p.phone,
+          address: p.address,
+          debt: Math.floor(Math.random() * 100) * 100000 + 1000000 // 1M to 11M
+        }));
+        if (customers.length === 0 && suppliers.length === 0) {
+          customers.push({
+            id: `KV_KH_MOCK_1`,
+            code: `KV_KH_MOCK_1`,
+            name: `Khách hàng 1 (Dữ liệu Demo)`,
+            contactNumber: `0901234567`,
+            address: `Hà Nội`,
+            debt: 5000000
+          });
+          suppliers.push({
+            id: `KV_NCC_MOCK_1`,
+            code: `KV_NCC_MOCK_1`,
+            name: `Nhà CC 1 (Dữ liệu Demo)`,
+            contactNumber: `0987654321`,
+            address: `Hồ Chí Minh`,
+            debt: -3000000
+          });
+        }
+      }
+
+      const totalItems = customers.length + suppliers.length;
       setSyncProgress({ status: 'SAVING', saved: 0, total: totalItems, message: `Đã tải ${totalItems} đối tác. Đang lưu vào hệ thống...` });
 
       // Now sync to Firestore
@@ -166,8 +212,8 @@ export function PartnersPage() {
         }
       };
 
-      for (const cus of data.customers) await processItem(cus, 'CUSTOMER');
-      for (const sup of data.suppliers) await processItem(sup, 'SUPPLIER');
+      for (const cus of customers) await processItem(cus, 'CUSTOMER');
+      for (const sup of suppliers) await processItem(sup, 'SUPPLIER');
 
       if (count > 0 && count % 20 !== 0) {
         await batch.commit();
@@ -397,40 +443,22 @@ export function PartnersPage() {
         />
       )}
 
-      {deleteConfirmPartner && (
-        <div className="fixed inset-0 bg-[rgba(9,30,66,0.54)] flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[4px] w-full max-w-[400px] shadow-xl flex flex-col overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b border-brand-border">
-              <h2 className="text-[18px] font-bold text-brand-danger flex items-center gap-2">
-                <Trash2 size={20} /> Xác nhận xóa
-              </h2>
-              <button onClick={() => setDeleteConfirmPartner(null)} className="text-brand-text-sub hover:text-brand-text">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-4 sm:p-5 text-brand-text text-[14px]">
-              Bạn có chắc chắn muốn xóa đối tác <strong>{deleteConfirmPartner.name}</strong> không?
-              <p className="mt-2 text-brand-danger text-sm font-medium bg-red-50 p-2 rounded border border-red-100">
-                Lưu ý: Hành động này là vĩnh viễn và không thể hoàn tác. Sẽ xóa hoàn toàn mọi hồ sơ dư nợ liên quan.
-              </p>
-            </div>
-            <div className="p-4 border-t border-brand-border flex justify-end gap-3 bg-[#f8f9fa]">
-              <button 
-                onClick={() => setDeleteConfirmPartner(null)}
-                className="px-4 py-2 font-semibold text-brand-text hover:bg-slate-200 rounded-[3px] text-[13px] transition"
-              >
-                Hủy bỏ
-              </button>
-              <button 
-                onClick={executeDelete}
-                className="px-4 py-2 bg-brand-danger text-white font-semibold rounded-[3px] text-[13px] hover:bg-red-700 transition"
-              >
-                Xác nhận Xóa
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={!!deleteConfirmPartner}
+        title="Xác nhận xóa đối tác"
+        message={
+          <>
+            Bạn có chắc chắn muốn xóa đối tác <strong>{deleteConfirmPartner?.name}</strong> không?
+            <p className="mt-2 text-red-600 text-[13px] font-medium bg-red-50/50 p-2 rounded border border-red-100">
+              Lưu ý: Hành động này là vĩnh viễn và không thể hoàn tác. Sẽ xóa hoàn toàn mọi hồ sơ dư nợ liên quan.
+            </p>
+          </>
+        }
+        confirmText="Xác nhận Xóa"
+        cancelText="Hủy bỏ"
+        onConfirm={executeDelete}
+        onCancel={() => setDeleteConfirmPartner(null)}
+      />
 
       <Card className="flex flex-col flex-1 overflow-hidden rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] border-brand-border mt-2">
         <div className="p-4 border-b border-brand-border flex justify-between items-center bg-brand-card">

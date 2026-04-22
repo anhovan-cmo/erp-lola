@@ -4,32 +4,37 @@ import { useAppContext, Transaction } from '../context/AppContext';
 import { formatCurrency } from '../lib/utils';
 import { TransactionFormModal } from '../components/TransactionFormModal';
 import { TransactionDetailModal } from '../components/TransactionDetailModal';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { Trash2 } from 'lucide-react';
 
 export function Transactions({ type }: { type: 'IMPORT' | 'EXPORT' }) {
   const { transactions, deleteTransaction, userProfile } = useAppContext();
   const [modalType, setModalType] = useState<'IMPORT' | 'EXPORT' | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
 
   const filteredTransactions = transactions.filter(t => t.type === type);
 
-  const handleDelete = async (e: React.MouseEvent, tx: Transaction) => {
+  const handleDeleteClick = (e: React.MouseEvent, tx: Transaction) => {
     e.stopPropagation(); // Ngăn mở modal chi tiết
-    if (confirm(`Bạn có chắc muốn xoá ${tx.type === 'IMPORT' ? 'Phiếu nhập' : 'Phiếu xuất'} ${tx.id}? Hành động này (quyền Admin) sẽ xoá vĩnh viễn dữ liệu.`)) {
-      try {
-        await deleteTransaction(tx.id);
-        alert('Xoá thành công!');
-      } catch (err: any) {
-        alert('Lỗi: ' + err.message);
-      }
+    setTransactionToDelete(tx);
+  };
+
+  const confirmDeleteTransaction = async () => {
+    if (!transactionToDelete) return;
+    try {
+      await deleteTransaction(transactionToDelete.id);
+    } catch (err: any) {
+      alert('Lỗi: ' + err.message);
     }
+    setTransactionToDelete(null);
   };
 
   const TrashIcon = ({ tx }: { tx: Transaction }) => {
     if (userProfile?.role !== 'ADMIN') return null;
     return (
       <button 
-        onClick={(e) => handleDelete(e, tx)}
+        onClick={(e) => handleDeleteClick(e, tx)}
         className="p-1.5 text-brand-danger hover:bg-red-50 rounded transition-colors"
         title="Admin: Xóa giao dịch"
       >
@@ -131,6 +136,18 @@ export function Transactions({ type }: { type: 'IMPORT' | 'EXPORT' }) {
           </div>
         </CardContent>
       </Card>
+
+      <ConfirmModal
+        isOpen={!!transactionToDelete}
+        title="Xác nhận xóa giao dịch"
+        message={
+          <>Bạn có chắc chắn muốn xoá <strong>{transactionToDelete?.type === 'IMPORT' ? 'Phiếu nhập' : 'Phiếu xuất'} {transactionToDelete?.id}</strong> không? Hành động này sẽ xóa vĩnh viễn dữ liệu (chỉ dành cho Admin).</>
+        }
+        confirmText="Xóa phiếu"
+        cancelText="Hủy"
+        onConfirm={confirmDeleteTransaction}
+        onCancel={() => setTransactionToDelete(null)}
+      />
     </>
   );
 }

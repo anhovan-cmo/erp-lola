@@ -4,6 +4,7 @@ import { Product, useAppContext } from '../context/AppContext';
 import { formatCurrency, cn } from '../lib/utils';
 import { handleFirestoreError } from '../lib/firebase/errors';
 import { auth } from '../lib/firebase/config';
+import { ConfirmModal } from './ConfirmModal';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -13,6 +14,7 @@ interface ProductDetailModalProps {
 export function ProductDetailModal({ product, onClose }: ProductDetailModalProps) {
   const { transactions, deleteProduct, userProfile } = useAppContext();
   const [isZoomed, setIsZoomed] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   // Find all transactions that include this product
   const productTransactions = transactions.filter(t => {
@@ -23,10 +25,7 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
     return false;
   });
 
-  const handleDelete = async () => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${product.name}"? Hành động này không thể hoàn tác.`)) {
-      return;
-    }
+  const confirmDelete = async () => {
     try {
       await deleteProduct(product.id);
       onClose();
@@ -34,6 +33,11 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
       handleFirestoreError(e, 'delete', 'products', auth.currentUser);
       alert("Lỗi khi xóa: " + e.message);
     }
+    setShowConfirmDelete(false);
+  };
+
+  const handleDelete = () => {
+    setShowConfirmDelete(true);
   };
 
   const canDelete = userProfile?.role === 'ADMIN' || userProfile?.role === 'ACCOUNTANT';
@@ -153,6 +157,18 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
           </button>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showConfirmDelete}
+        title="Xác nhận xóa hàng hóa"
+        message={
+          <>Bạn có chắc chắn muốn xóa sản phẩm <strong>{product.name}</strong> không? Hành động này không thể hoàn tác.</>
+        }
+        confirmText="Xóa hàng hóa"
+        cancelText="Hủy"
+        onConfirm={confirmDelete}
+        onCancel={() => setShowConfirmDelete(false)}
+      />
     </div>
   );
 }

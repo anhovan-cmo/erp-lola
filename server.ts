@@ -51,8 +51,8 @@ async function fetchKiotVietPath(token: string, path: string, retries = 3): Prom
       
       const errorText = await response.text();
       if (errorText.includes('<html') || errorText.includes('<!DOCTYPE')) {
-        // Fallback to mock data for demonstration if KiotViet is completely down
-        return generateMockData(path);
+         console.warn("KiotViet returned 503 IP block. Falling back to Demo Sync Mode.");
+         return { isMock: true, data: [] };
       }
       throw new Error(`KiotViet API Error: ${errorText}`);
     }
@@ -64,22 +64,9 @@ async function fetchKiotVietPath(token: string, path: string, retries = 3): Prom
       await new Promise(r => setTimeout(r, 2000));
       return fetchKiotVietPath(token, path, retries - 1);
     }
-    // Fallback to mock data for demonstration if KiotViet is completely down
-    return generateMockData(path);
+    console.warn("Network error during KiotViet fetch. Falling back to Demo Sync Mode.");
+    return { isMock: true, data: [] };
   }
-}
-
-function generateMockData(path: string) {
-  const isCustomers = path.includes('customers');
-  const items = Array.from({ length: 50 }).map((_, i) => ({
-    id: `mock_${isCustomers ? 'cus' : 'sup'}_${Math.random().toString(36).substring(2, 9)}`,
-    code: `KV${isCustomers ? 'KH' : 'NCC'}${1000 + i}`,
-    name: `${isCustomers ? 'Khách hàng' : 'Nhà cung cấp'} Demo ${i + 1} (KiotViet Lỗi)`,
-    contactNumber: `09${Math.floor(Math.random() * 100000000).toString().padStart(8, '0')}`,
-    address: `${Math.floor(Math.random() * 100)} Nguyễn Văn Linh, Quận 7`,
-    debt: Math.floor(Math.random() * 10000000)
-  }));
-  return { data: items };
 }
 
 async function startServer() {
@@ -96,11 +83,17 @@ async function startServer() {
       const fetchAll = async (endpoint: string, maxPages = 10) => {
         let allData: any[] = [];
         let hasMore = true;
+        let isMockTriggered = false;
 
         while (hasMore && allData.length < maxPages * 100) {
           const skip = allData.length;
           const url = `${endpoint}?pageSize=100&skip=${skip}`;
           const responseData = await fetchKiotVietPath(token, url);
+          
+          if (responseData && responseData.isMock) {
+              isMockTriggered = true;
+              break;
+          }
           
           if (responseData && responseData.data && responseData.data.length > 0) {
             allData = allData.concat(responseData.data);
@@ -114,16 +107,17 @@ async function startServer() {
             hasMore = false;
           }
         }
-        return allData;
+        return { data: allData, isMock: isMockTriggered };
       };
 
-      const customersData = await fetchAll("customers");
-      const suppliersData = await fetchAll("suppliers");
+      const customersRes = await fetchAll("customers");
+      const suppliersRes = await fetchAll("suppliers");
 
       res.json({
         success: true,
-        customers: customersData,
-        suppliers: suppliersData
+        isMock: customersRes.isMock || suppliersRes.isMock,
+        customers: customersRes.data,
+        suppliers: suppliersRes.data
       });
     } catch (error: any) {
       console.error("Sync Error:", error);
