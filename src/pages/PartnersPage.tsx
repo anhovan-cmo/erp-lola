@@ -130,16 +130,33 @@ export function PartnersPage() {
         const address = (item.address || '').substring(0, 500);
         const debt = Number(item.debt || 0);
 
-        batch.set(ptRef, {
-          id: idStr,
-          name,
-          phone,
-          address,
-          type,
-          totalReceivable: type === 'CUSTOMER' ? debt : 0,
-          totalPayable: type === 'SUPPLIER' ? debt : 0,
-          updatedAt: now
-        }, { merge: true });
+        const exists = partners.some(p => p.id === idStr);
+
+        if (exists) {
+           batch.update(ptRef, {
+            name,
+            phone,
+            address,
+            type,
+            totalReceivable: type === 'CUSTOMER' ? debt : 0,
+            totalPayable: type === 'SUPPLIER' ? debt : 0,
+            updatedAt: now
+          });
+        } else {
+           batch.set(ptRef, {
+            id: idStr,
+            name,
+            phone,
+            address,
+            type,
+            cccd: '',
+            mst: '',
+            totalReceivable: type === 'CUSTOMER' ? debt : 0,
+            totalPayable: type === 'SUPPLIER' ? debt : 0,
+            createdAt: now,
+            updatedAt: now
+          });
+        }
         count++;
 
         if (count % 20 === 0) { // Batch at 20 so progress bar triggers visually fast
