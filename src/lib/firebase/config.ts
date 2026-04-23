@@ -1,11 +1,14 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
+const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
+
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); // MUST use firestoreDatabaseId
 export const auth = getAuth(app);
+export const secondaryAuth = getAuth(secondaryApp);
 
 export const googleProvider = new GoogleAuthProvider();
 

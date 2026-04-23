@@ -103,9 +103,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const profileRef = doc(db, 'users', u.uid);
         const profileSnap = await getDoc(profileRef);
         if (!profileSnap.exists()) {
-           // Create default mapping. Use 'ADMIN' if it's the requested email.
+           // Auto confirm account by skipping 'PENDING' assignment for new accounts
            const adminEmails = ['anhovan.mmo@gmail.com', 'anhovan.cso@gmail.com'];
-           const newRole = adminEmails.includes(u.email || '') ? 'ADMIN' : 'PENDING';
+           const newRole = adminEmails.includes(u.email || '') ? 'ADMIN' : 'CSKH';
            await setDoc(profileRef, {
              email: u.email,
              name: u.displayName || u.email,

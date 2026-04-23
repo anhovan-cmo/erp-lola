@@ -22,6 +22,7 @@ export function PartnersPage() {
   const hasAutoSynced = useRef(false);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'CUSTOMER' | 'SUPPLIER'>('ALL');
   const [deleteConfirmPartner, setDeleteConfirmPartner] = useState<{id: string, name: string} | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,17 +37,18 @@ export function PartnersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, activeTab]);
 
   const filteredPartners = useMemo(() => {
     return partners.filter(p => {
+      if (activeTab !== 'ALL' && p.type !== activeTab) return false;
       if (!searchTerm) return true;
       const lowerSearch = searchTerm.toLowerCase();
       const matchName = p.name.toLowerCase().includes(lowerSearch);
       const matchPhone = p.phone && p.phone.toLowerCase().includes(lowerSearch);
       return matchName || matchPhone;
     });
-  }, [partners, searchTerm]);
+  }, [partners, searchTerm, activeTab]);
 
   const totalPages = Math.ceil(filteredPartners.length / itemsPerPage);
   const paginatedPartners = filteredPartners.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -461,8 +463,42 @@ export function PartnersPage() {
       />
 
       <Card className="flex flex-col flex-1 overflow-hidden rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] border-brand-border mt-2">
+        <div className="flex justify-between items-center bg-brand-card">
+          <div className="flex border-b border-brand-border w-full">
+            <button
+              onClick={() => setActiveTab('ALL')}
+              className={`px-6 py-3 text-[14px] font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+                activeTab === 'ALL'
+                  ? 'border-brand-primary text-brand-primary bg-blue-50/30'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Tất cả
+            </button>
+            <button
+              onClick={() => setActiveTab('CUSTOMER')}
+              className={`px-6 py-3 text-[14px] font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+                activeTab === 'CUSTOMER'
+                  ? 'border-blue-600 text-blue-700 bg-blue-50/30'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Khách hàng
+            </button>
+            <button
+              onClick={() => setActiveTab('SUPPLIER')}
+              className={`px-6 py-3 text-[14px] font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+                activeTab === 'SUPPLIER'
+                  ? 'border-purple-600 text-purple-700 bg-purple-50/30'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Nhà cung cấp
+            </button>
+          </div>
+        </div>
         <div className="p-4 border-b border-brand-border flex justify-between items-center bg-brand-card">
-          <h3 className="text-[15px] sm:text-[16px] font-semibold">Danh Sách Đối Tác</h3>
+          <h3 className="text-[15px] sm:text-[16px] font-semibold">Danh Sách {activeTab === 'CUSTOMER' ? 'Khách Hàng' : activeTab === 'SUPPLIER' ? 'Nhà Cung Cấp' : 'Đối Tác'}</h3>
           <div className="text-[12px] text-brand-text-sub">Tổng số: {filteredPartners.length}</div>
         </div>
         <CardContent className="p-0 overflow-x-auto flex-1">

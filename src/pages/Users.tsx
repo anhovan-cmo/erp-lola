@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from '../components/ui/card';
 import { useAppContext, Role, UserProfile } from '../context/AppContext';
-import { ShieldAlert, Trash2, ShieldCheck } from 'lucide-react';
+import { ShieldAlert, Trash2, ShieldCheck, UserPlus } from 'lucide-react';
 import { UserPermissionModal } from '../components/UserPermissionModal';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { UserCreateModal } from '../components/UserCreateModal';
 
 export function UsersPage() {
   const { usersList, updateUserRole, updateUserPermissions, userProfile, deleteUser } = useAppContext();
   const [selectedUserForPerms, setSelectedUserForPerms] = useState<UserProfile | null>(null);
   const [userToDelete, setUserToDelete] = useState<{id: string, name: string} | null>(null);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
 
   if (userProfile?.role !== 'ADMIN') {
     return (
@@ -57,6 +59,13 @@ export function UsersPage() {
     <>
       <header className="flex justify-between items-center mb-1">
         <h1 className="text-[24px] font-semibold uppercase">QUẢN LÝ NHÂN VIÊN</h1>
+        <button 
+          onClick={() => setIsCreatingUser(true)}
+          className="bg-brand-primary text-white border-none py-2 px-4 rounded-[3px] font-semibold text-[13px] hover:bg-blue-700 transition flex items-center gap-2"
+        >
+          <UserPlus size={16} />
+          Tạo tài khoản
+        </button>
       </header>
 
       <div className="flex-1 min-h-0 pb-4">
@@ -130,6 +139,12 @@ export function UsersPage() {
           user={selectedUserForPerms}
           onClose={() => setSelectedUserForPerms(null)}
           onSave={handleSavePerms}
+        />
+      )}
+
+      {isCreatingUser && (
+        <UserCreateModal 
+          onClose={() => setIsCreatingUser(false)} 
         />
       )}
 
