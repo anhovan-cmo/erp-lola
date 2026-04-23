@@ -61,72 +61,94 @@ export function ProductList() {
   };
 
   const executeKiotVietSync = async (isBackground = false) => {
-    if (!isBackground) setSyncKiotVietStatus('Đang kéo dữ liệu KV...');
+    if (!isBackground) setSyncKiotVietStatus('Đang kết nối KiotViet...');
+    
+    let currentSkip = 0;
+    let totalSynced = 0;
+    let hasMore = true;
+
     try {
-      const res = await fetch('/api/kiotviet/sync-products');
-      if (!res.ok) throw new Error('Cổng đồng bộ quá tải');
-      const data = await res.json();
-      
-      if (!data.success) throw new Error(data.error);
-
-      if (!isBackground) setSyncKiotVietStatus('Đang ghi vào CSDL...');
-      
-      const kvProducts = data.products || [];
-      const now = serverTimestamp();
-      let batch = writeBatch(db);
-      let count = 0;
-
-      for (const item of kvProducts) {
-        const docRef = doc(db, 'products', item.code); // Use KV code as ID
+      while (hasMore) {
+        if (!isBackground) setSyncKiotVietStatus(currentSkip === 0 ? 'Đang kéo CSDL...' : `Đã tải ${currentSkip} SP...`);
         
-        let imageUrl = '';
-        if (item.images && item.images.length > 0) {
-           imageUrl = item.images[0];
+        const res = await fetch(`/api/kiotviet/sync-products?skip=${currentSkip}`);
+        let data;
+        try {
+           data = await res.json();
+        } catch (err) {
+           throw new Error(`Mất kết nối máy chủ (HTTP ${res.status}) - đang ở trang ${currentSkip}`);
+        }
+        
+        if (!res.ok || !data.success) {
+           throw new Error(data.error || 'Lỗi server');
         }
 
-        let itemStock = item.onHand || 0;
-        if (item.inventories && item.inventories.length > 0) {
-           itemStock = item.inventories[0].onHand || 0;
-        }
-
-        const updateData: any = {
-          name: item.fullName,
-          brand: item.categoryId ? `Danh mục KV (${item.categoryId || ''})` : 'Khác',
-          price: item.basePrice || 0,
-          cost: item.cost || 0,
-          stock: itemStock,
-          image: imageUrl || "",
-          updatedAt: now
-        };
-
-        const existing = products.find(p => p.id === item.code);
-        if (existing) {
-          batch.update(docRef, updateData);
-        } else {
-          // If KiotViet provides createdDate, use it, else use now. 
-          // KiotViet date format: "2024-04-12T05:54:19.0000000"
-          let itemCreatedAt: any = now;
-          if (item.createdDate) {
-             const parsed = new Date(item.createdDate);
-             if (!isNaN(parsed.getTime())) {
-                itemCreatedAt = parsed.getTime(); // Store as number for consistency
+        const kvProducts = data.products || [];
+        totalSynced += kvProducts.length;
+        
+        if (kvProducts.length > 0) {
+           if (!isBackground) setSyncKiotVietStatus(`Đang ghi ${kvProducts.length} SP vào CSDL...`);
+           const now = serverTimestamp();
+           let batch = writeBatch(db);
+           let count = 0;
+     
+           for (const item of kvProducts) {
+             const docRef = doc(db, 'products', item.code); // Use KV code as ID
+             
+             let imageUrl = '';
+             if (item.images && item.images.length > 0) {
+                imageUrl = item.images[0];
              }
-          }
-          batch.set(docRef, { ...updateData, id: item.code, createdAt: itemCreatedAt });
+     
+             let itemStock = item.onHand || 0;
+             if (item.inventories && item.inventories.length > 0) {
+                itemStock = item.inventories[0].onHand || 0;
+             }
+     
+             const updateData: any = {
+               name: item.fullName,
+               brand: item.categoryId ? `Danh mục KV (${item.categoryId || ''})` : 'Khác',
+               price: item.basePrice || 0,
+               cost: item.cost || 0,
+               stock: itemStock,
+               image: imageUrl || "",
+               updatedAt: now
+             };
+     
+             const existing = products.find(p => p.id === item.code);
+             if (existing) {
+               batch.update(docRef, updateData);
+             } else {
+               let itemCreatedAt: any = now;
+               if (item.createdDate) {
+                  const parsed = new Date(item.createdDate);
+                  if (!isNaN(parsed.getTime())) {
+                     itemCreatedAt = parsed.getTime(); 
+                  }
+               }
+               batch.set(docRef, { ...updateData, id: item.code, createdAt: itemCreatedAt });
+             }
+     
+             count++;
+             if (count >= 490) {
+               await batch.commit();
+               batch = writeBatch(db);
+               count = 0;
+             }
+           }
+           if (count > 0) await batch.commit();
         }
 
-        count++;
-        if (count >= 490) {
-          await batch.commit();
-          batch = writeBatch(db);
-          count = 0;
+        if (data.nextSkip && data.nextSkip > currentSkip) {
+           currentSkip = data.nextSkip;
+        } else {
+           hasMore = false;
         }
       }
-      if (count > 0) await batch.commit();
       
       if (!isBackground) {
         setSyncKiotVietStatus(null);
-        alert(`Đã đồng bộ thành công ${kvProducts.length} sản phẩm từ KiotViet!`);
+        alert(`Đã đồng bộ thành công tổng số ${totalSynced} sản phẩm từ KiotViet!`);
       }
     } catch (e: any) {
        console.error("KiotViet Sync Error:", e);

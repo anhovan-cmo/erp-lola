@@ -128,14 +128,21 @@ async function startServer() {
   // API Route to sync products
   app.get("/api/kiotviet/sync-products", async (req, res) => {
     try {
+      const skipParam = parseInt(req.query.skip as string) || 0;
+      const startTime = Date.now();
       const token = await getKiotVietToken();
       let allData: any[] = [];
       let hasMore = true;
       let isMockTriggered = false;
+      let currentSkip = skipParam;
 
-      while (hasMore && allData.length < 10000) { // Limit to 10000 
-        const skip = allData.length;
-        const url = `products?pageSize=100&skip=${skip}&includeInventory=true`;
+      while (hasMore && allData.length < 5000) { // Limit inside one request
+        // Break early if we're nearing 20 seconds to prevent Cloud Run timeout
+        if (Date.now() - startTime > 15000) {
+           break;
+        }
+
+        const url = `products?pageSize=100&skip=${currentSkip}&includeInventory=true`;
         const responseData = await fetchKiotVietPath(token, url);
         
         if (responseData && responseData.isMock) {
@@ -145,10 +152,12 @@ async function startServer() {
         
         if (responseData && responseData.data && responseData.data.length > 0) {
           allData = allData.concat(responseData.data);
+          currentSkip += responseData.data.length;
+          
           if (responseData.data.length < 100) {
              hasMore = false;
           } else {
-             await new Promise(r => setTimeout(r, 1000));
+             await new Promise(r => setTimeout(r, 200));
           }
         } else {
           hasMore = false;
@@ -158,7 +167,8 @@ async function startServer() {
       res.json({
         success: true,
         isMock: isMockTriggered,
-        products: allData
+        products: allData,
+        nextSkip: hasMore ? currentSkip : null
       });
     } catch (error: any) {
       console.error("Sync Products Error:", error);
