@@ -125,6 +125,47 @@ async function startServer() {
     }
   });
 
+  // API Route to sync products
+  app.get("/api/kiotviet/sync-products", async (req, res) => {
+    try {
+      const token = await getKiotVietToken();
+      let allData: any[] = [];
+      let hasMore = true;
+      let isMockTriggered = false;
+
+      while (hasMore && allData.length < 10000) { // Limit to 10000 
+        const skip = allData.length;
+        const url = `products?pageSize=100&skip=${skip}&includeInventory=true`;
+        const responseData = await fetchKiotVietPath(token, url);
+        
+        if (responseData && responseData.isMock) {
+            isMockTriggered = true;
+            break;
+        }
+        
+        if (responseData && responseData.data && responseData.data.length > 0) {
+          allData = allData.concat(responseData.data);
+          if (responseData.data.length < 100) {
+             hasMore = false;
+          } else {
+             await new Promise(r => setTimeout(r, 1000));
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      res.json({
+        success: true,
+        isMock: isMockTriggered,
+        products: allData
+      });
+    } catch (error: any) {
+      console.error("Sync Products Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

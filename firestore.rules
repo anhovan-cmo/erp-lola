@@ -62,8 +62,7 @@ service cloud.firestore {
         && (!('discount' in data) || data.discount == null || data.discount is number)
         && (!('otherFees' in data) || data.otherFees == null || data.otherFees is number)
         && (!('amountPaid' in data) || data.amountPaid == null || data.amountPaid is number)
-        && (!('items' in data) || data.items == null || (data.items is list && data.items.size() <= 500))
-        && data.userId == request.auth.uid;
+        && (!('items' in data) || data.items == null || (data.items is list && data.items.size() <= 500));
     }
 
     function isValidActivityLog(data) {
@@ -118,8 +117,12 @@ service cloud.firestore {
       allow create: if isVerified() 
         && isValidId(transactionId) 
         && isValidTransaction(incoming()) 
+        && incoming().userId == request.auth.uid
         && incoming().createdAt == request.time;
-      allow update: if isVerified() && isValidId(transactionId) && isValidTransaction(incoming()); 
+      allow update: if isVerified() 
+        && isValidId(transactionId) 
+        && isValidTransaction(incoming())
+        && incoming().userId == existing().userId; 
       allow delete: if isVerified() && isValidId(transactionId);
     }
 

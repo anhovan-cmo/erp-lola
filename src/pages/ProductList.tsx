@@ -22,6 +22,9 @@ export function ProductList() {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [showBrandDropdown, setShowBrandDropdown] = useState(false);
   const [showColDropdown, setShowColDropdown] = useState(false);
+
+  const [syncKiotVietStatus, setSyncKiotVietStatus] = useState<string | null>(null);
+  const [isAutoSync, setIsAutoSync] = useState(() => localStorage.getItem('autoSyncKiotViet') === 'true');
   
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -40,7 +43,8 @@ export function ProductList() {
       { id: 'brand', label: 'Thương Hiệu', visible: true },
       { id: 'cost', label: 'Giá Vốn', visible: true },
       { id: 'price', label: 'Giá Bán', visible: true },
-      { id: 'stock', label: 'Tồn Lượng', visible: true }
+      { id: 'stock', label: 'Tồn Lượng', visible: true },
+      { id: 'createdAt', label: 'Thời Gian', visible: true }
     ];
   });
   
@@ -50,6 +54,102 @@ export function ProductList() {
 
   const normalize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   
+  const handleAutoSyncToggle = () => {
+    const newVal = !isAutoSync;
+    setIsAutoSync(newVal);
+    localStorage.setItem('autoSyncKiotViet', String(newVal));
+  };
+
+  const executeKiotVietSync = async (isBackground = false) => {
+    if (!isBackground) setSyncKiotVietStatus('Đang kéo dữ liệu KV...');
+    try {
+      const res = await fetch('/api/kiotviet/sync-products');
+      if (!res.ok) throw new Error('Cổng đồng bộ quá tải');
+      const data = await res.json();
+      
+      if (!data.success) throw new Error(data.error);
+
+      if (!isBackground) setSyncKiotVietStatus('Đang ghi vào CSDL...');
+      
+      const kvProducts = data.products || [];
+      const now = serverTimestamp();
+      let batch = writeBatch(db);
+      let count = 0;
+
+      for (const item of kvProducts) {
+        const docRef = doc(db, 'products', item.code); // Use KV code as ID
+        
+        let imageUrl = '';
+        if (item.images && item.images.length > 0) {
+           imageUrl = item.images[0];
+        }
+
+        let itemStock = item.onHand || 0;
+        if (item.inventories && item.inventories.length > 0) {
+           itemStock = item.inventories[0].onHand || 0;
+        }
+
+        const updateData: any = {
+          name: item.fullName,
+          brand: item.categoryId ? `Danh mục KV (${item.categoryId || ''})` : 'Khác',
+          price: item.basePrice || 0,
+          cost: item.cost || 0,
+          stock: itemStock,
+          image: imageUrl || "",
+          updatedAt: now
+        };
+
+        const existing = products.find(p => p.id === item.code);
+        if (existing) {
+          batch.update(docRef, updateData);
+        } else {
+          // If KiotViet provides createdDate, use it, else use now. 
+          // KiotViet date format: "2024-04-12T05:54:19.0000000"
+          let itemCreatedAt: any = now;
+          if (item.createdDate) {
+             const parsed = new Date(item.createdDate);
+             if (!isNaN(parsed.getTime())) {
+                itemCreatedAt = parsed.getTime(); // Store as number for consistency
+             }
+          }
+          batch.set(docRef, { ...updateData, id: item.code, createdAt: itemCreatedAt });
+        }
+
+        count++;
+        if (count >= 490) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+      if (count > 0) await batch.commit();
+      
+      if (!isBackground) {
+        setSyncKiotVietStatus(null);
+        alert(`Đã đồng bộ thành công ${kvProducts.length} sản phẩm từ KiotViet!`);
+      }
+    } catch (e: any) {
+       console.error("KiotViet Sync Error:", e);
+       if (!isBackground) {
+          alert('Lỗi đồng bộ: ' + e.message);
+          setSyncKiotVietStatus(null);
+       }
+    }
+  };
+
+  // Auto-sync polling every 30 seconds
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isAutoSync) {
+       interval = setInterval(() => {
+          executeKiotVietSync(true); // run silently
+       }, 30000); // 30s limit
+    }
+    return () => {
+       if (interval) clearInterval(interval);
+    };
+  }, [isAutoSync, products]);
+
   React.useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, selectedBrands, stockThreshold, sortStockDir]);
@@ -238,6 +338,23 @@ export function ProductList() {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
         <h1 className="text-[20px] md:text-[24px] font-semibold">QUẢN LÝ TỒN KHO</h1>
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <label className="flex items-center gap-2 text-[13px] bg-slate-100 px-3 py-2 rounded border border-slate-200 cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={isAutoSync} 
+              onChange={handleAutoSyncToggle} 
+              className="rounded border-gray-300 text-brand-primary"
+            />
+            Tự động lấy KV (30s)
+          </label>
+          <button 
+            disabled={!!syncKiotVietStatus}
+            onClick={() => executeKiotVietSync(false)}
+            className="bg-brand-tag-pe-bg text-brand-tag-pe-text border border-[#fed69c] flex items-center justify-center py-2 px-3 rounded-[3px] font-semibold text-[13px] hover:bg-[#ffeac7] transition"
+          >
+            {syncKiotVietStatus || "🔄 Đồng bộ ngay"}
+          </button>
+          
           <input 
             type="text" 
             placeholder="Tìm kiếm hàng hóa..." 
@@ -439,6 +556,19 @@ export function ProductList() {
                         </div>
                       </td>
                     );
+                    }
+                    if (col.id === 'createdAt') {
+                      let dateStr = '---';
+                      if (product.createdAt) {
+                         const date = product.createdAt?.toMillis ? new Date(product.createdAt.toMillis()) : new Date(product.createdAt);
+                         if (!isNaN(date.getTime())) {
+                            dateStr = date.toLocaleString('vi-VN', { 
+                              day: '2-digit', month: '2-digit', year: 'numeric', 
+                              hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                            });
+                         }
+                      }
+                      return <td key={col.id} className="p-3 px-4 border-b border-brand-border text-brand-text-sub whitespace-nowrap text-[12px]">{dateStr}</td>;
                     }
                     return null;
                   })}

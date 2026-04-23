@@ -130,14 +130,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user || !userProfile || userProfile.role === 'PENDING') return;
     
+    const getSortTime = (obj: any) => {
+      if (obj.createdAt?.toMillis) return obj.createdAt.toMillis();
+      if (obj.createdAt?.seconds) return obj.createdAt.seconds * 1000;
+      if (typeof obj.createdAt === 'string') return new Date(obj.createdAt).getTime();
+      if (typeof obj.createdAt === 'number') return obj.createdAt;
+      
+      if (obj.updatedAt?.toMillis) return obj.updatedAt.toMillis();
+      if (obj.updatedAt?.seconds) return obj.updatedAt.seconds * 1000;
+      
+      return 0; // Fallback
+    };
+    
+    // Extract max numeric part from ID for secondary sort fallback
+    const getNumericId = (id: string) => {
+      const match = id.match(/\d+/g);
+      if (!match) return 0;
+      return parseInt(match[match.length - 1], 10);
+    };
+
+    const sortByNewest = (a: any, b: any) => {
+      const timeDiff = getSortTime(b) - getSortTime(a);
+      if (timeDiff !== 0) return timeDiff;
+      // Secondary sort: Reverse natural order of IDs (e.g. CO627 > CO01)
+      const numDiff = getNumericId(b.id) - getNumericId(a.id);
+      if (numDiff !== 0) return numDiff;
+      return b.id.localeCompare(a.id);
+    };
+
     const unsubProducts = onSnapshot(collection(db, 'products'), (snap) => {
-      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)).sort((a,b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)));
+      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)).sort(sortByNewest));
     });
     const unsubTx = onSnapshot(collection(db, 'transactions'), (snap) => {
-      setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction)).sort((a,b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)));
+      setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction)).sort(sortByNewest));
     });
     const unsubPartners = onSnapshot(collection(db, 'partners'), (snap) => {
-      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() } as Partner)).sort((a,b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)));
+      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() } as Partner)).sort(sortByNewest));
     });
 
     let unsubUsers = () => {};
@@ -410,7 +438,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{ 
       user, userProfile, loading, products, transactions, partners, usersList, 
-      login, addTransaction, updatePartnerDebt, updateUserRole, updateUserPermissions, hasPermission, deleteProduct,
+      login, addTransaction, updateTransaction, updatePartnerDebt, updateUserRole, updateUserPermissions, hasPermission, deleteProduct,
       addPartner, updatePartner, deletePartner, deleteTransaction, deleteUser,
       logActivity
     }}>

@@ -43,8 +43,9 @@ export function TransactionDetailModal({ transaction: initialTransaction, onClos
     try {
       await updateTransaction(transaction.id, { note: noteValue.trim() });
       setIsEditingNote(false);
-    } catch (e) {
-      alert("Có lỗi khi lưu ghi chú");
+    } catch (e: any) {
+      console.error(e);
+      alert("Có lỗi khi lưu ghi chú: " + e.message);
     } finally {
       setIsSavingNote(false);
     }
