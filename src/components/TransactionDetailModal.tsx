@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Calendar, User, FileText, ArrowRightCircle, ArrowLeftCircle, Printer } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Calendar, User, FileText, ArrowRightCircle, ArrowLeftCircle, Printer, Save, Edit3 } from 'lucide-react';
 import { formatCurrency, cn } from '../lib/utils';
 import { Transaction, useAppContext } from '../context/AppContext';
 import { PrintPreviewModal } from './PrintPreviewModal';
@@ -10,8 +10,35 @@ interface TransactionDetailModalProps {
 }
 
 export function TransactionDetailModal({ transaction, onClose }: TransactionDetailModalProps) {
-  const { products, partners, usersList, userProfile, user } = useAppContext();
+  const { products, partners, usersList, userProfile, user, updateTransaction } = useAppContext();
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [noteValue, setNoteValue] = useState(transaction.note || '');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditingNote && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditingNote]);
+
+  const handleSaveNote = async () => {
+    if (noteValue.trim() === transaction.note?.trim()) {
+      setIsEditingNote(false);
+      return;
+    }
+    
+    setIsSavingNote(true);
+    try {
+      await updateTransaction(transaction.id, { note: noteValue.trim() });
+      setIsEditingNote(false);
+    } catch (e) {
+      alert("Có lỗi khi lưu ghi chú");
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
 
   const calculateGrossProfit = () => {
     if (!transaction.items) return 0;
@@ -84,12 +111,62 @@ export function TransactionDetailModal({ transaction, onClose }: TransactionDeta
             </div>
 
             <div className="flex items-start gap-3">
-              <FileText className="w-10 h-10 text-brand-text-sub bg-slate-100 rounded-full p-2" />
-              <div>
-                <p className="text-sm text-brand-text-sub font-semibold">Ghi chú</p>
-                <p className="font-medium text-brand-text text-[14px]">
-                  {transaction.note || <span className="italic text-gray-400">Không có ghi chú</span>}
-                </p>
+              <FileText className="w-10 h-10 text-brand-text-sub bg-slate-100 rounded-full p-2 mt-1" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-sm text-brand-text-sub font-semibold">Ghi chú</p>
+                  {!isEditingNote && (
+                    <button 
+                       onClick={() => setIsEditingNote(true)} 
+                       className="p-1 text-slate-400 hover:text-brand-primary hover:bg-blue-50 rounded transition-colors"
+                       title="Chỉnh sửa ghi chú"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                  )}
+                </div>
+                
+                {isEditingNote ? (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      className="w-full px-3 py-1.5 border border-brand-primary rounded-[3px] text-[14px] focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                      value={noteValue}
+                      onChange={(e) => setNoteValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveNote();
+                        if (e.key === 'Escape') {
+                          setNoteValue(transaction.note || '');
+                          setIsEditingNote(false);
+                        }
+                      }}
+                    />
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={handleSaveNote}
+                        disabled={isSavingNote}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-primary text-white text-[12px] font-semibold rounded-[3px] hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {isSavingNote ? '...' : <><Save size={14} /> Lưu</>}
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setNoteValue(transaction.note || '');
+                          setIsEditingNote(false);
+                        }}
+                        disabled={isSavingNote}
+                        className="px-3 py-1.5 bg-slate-100 text-brand-text-sub text-[12px] font-medium rounded-[3px] hover:bg-slate-200 disabled:opacity-50"
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="font-medium text-brand-text text-[14px] whitespace-pre-wrap">
+                    {transaction.note || <span className="italic text-gray-400">Không có ghi chú</span>}
+                  </p>
+                )}
               </div>
             </div>
           </div>

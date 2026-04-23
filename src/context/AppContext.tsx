@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, signInWithGoogle } from '../lib/firebase/config';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, onSnapshot, query, doc, writeBatch, serverTimestamp, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, writeBatch, serverTimestamp, setDoc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
 export type Role = 'ADMIN' | 'ACCOUNTANT' | 'CSKH' | 'WAREHOUSE' | 'PENDING';
 export type AppPermission = { view: boolean; create: boolean; edit: boolean; delete: boolean; };
@@ -79,6 +79,7 @@ interface AppState {
   addPartner: (partner: Partial<Partner>) => Promise<void>;
   updatePartner: (partnerId: string, data: Partial<Partner>) => Promise<void>;
   deletePartner: (partnerId: string) => Promise<void>;
+  updateTransaction: (transactionId: string, data: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   logActivity: (action: string, module: string, details: string) => Promise<void>;
@@ -353,6 +354,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const ptRef = doc(db, 'partners', partnerId);
     await deleteDoc(ptRef);
     logActivity('XÓA', 'KHÁCH/NCC', `Xóa đối tác ID: ${partnerId}`);
+  };
+
+  const updateTransaction = async (transactionId: string, data: Partial<Transaction>) => {
+    if (!user) throw new Error('Not logged in');
+    try {
+      const tRef = doc(db, 'transactions', transactionId);
+      await updateDoc(tRef, {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+      logActivity('CẬP NHẬT', 'GIAO DỊCH', `Cập nhật thông tin giao dịch ID: ${transactionId}`);
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
   };
 
   const deleteTransaction = async (transactionId: string) => {
