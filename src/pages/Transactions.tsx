@@ -31,12 +31,15 @@ export function Transactions({ type }: { type: 'IMPORT' | 'EXPORT' }) {
   };
 
   const TrashIcon = ({ tx }: { tx: Transaction }) => {
-    if (userProfile?.role !== 'ADMIN') return null;
+    const { hasPermission } = useAppContext();
+    const moduleName = tx.type === 'IMPORT' ? 'imports' : 'exports';
+    if (!hasPermission(moduleName, 'delete')) return null;
+    
     return (
       <button 
         onClick={(e) => handleDeleteClick(e, tx)}
         className="p-1.5 text-brand-danger hover:bg-red-50 rounded transition-colors"
-        title="Admin: Xóa giao dịch"
+        title="Xóa giao dịch"
       >
         <Trash2 size={16} />
       </button>

@@ -119,8 +119,8 @@ service cloud.firestore {
         && isValidId(transactionId) 
         && isValidTransaction(incoming()) 
         && incoming().createdAt == request.time;
-      allow update: if isAdmin() && isValidTransaction(incoming()); 
-      allow delete: if isAdmin();
+      allow update: if isVerified() && isValidId(transactionId) && isValidTransaction(incoming()); 
+      allow delete: if isVerified() && isValidId(transactionId);
     }
 
     match /users/{userId} {

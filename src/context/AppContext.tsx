@@ -131,13 +131,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!user || !userProfile || userProfile.role === 'PENDING') return;
     
     const unsubProducts = onSnapshot(collection(db, 'products'), (snap) => {
-      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
+      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)).sort((a,b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)));
     });
     const unsubTx = onSnapshot(collection(db, 'transactions'), (snap) => {
       setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction)).sort((a,b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)));
     });
     const unsubPartners = onSnapshot(collection(db, 'partners'), (snap) => {
-      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() } as Partner)));
+      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() } as Partner)).sort((a,b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)));
     });
 
     let unsubUsers = () => {};
@@ -358,6 +358,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateTransaction = async (transactionId: string, data: Partial<Transaction>) => {
     if (!user) throw new Error('Not logged in');
+    
+    // Authorization check
+    let moduleName = 'transactions';
+    if (transactionId.startsWith('NK')) moduleName = 'imports';
+    if (transactionId.startsWith('XK')) moduleName = 'exports';
+    
+    if (!hasPermission(moduleName, 'edit')) {
+      throw new Error('Permission denied');
+    }
+
     try {
       const tRef = doc(db, 'transactions', transactionId);
       await updateDoc(tRef, {
@@ -373,7 +383,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteTransaction = async (transactionId: string) => {
     if (!user) throw new Error('Not logged in');
-    if (userProfile?.role !== 'ADMIN') throw new Error('Permission denied');
+    
+    // Authorization check
+    let moduleName = 'transactions';
+    if (transactionId.startsWith('NK')) moduleName = 'imports';
+    if (transactionId.startsWith('XK')) moduleName = 'exports';
+    
+    if (!hasPermission(moduleName, 'delete')) {
+      throw new Error('Permission denied');
+    }
+
     const txRef = doc(db, 'transactions', transactionId);
     
     await deleteDoc(txRef);

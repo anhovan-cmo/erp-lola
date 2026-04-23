@@ -9,9 +9,13 @@ interface TransactionDetailModalProps {
   onClose: () => void;
 }
 
-export function TransactionDetailModal({ transaction, onClose }: TransactionDetailModalProps) {
-  const { products, partners, usersList, userProfile, user, updateTransaction } = useAppContext();
+export function TransactionDetailModal({ transaction: initialTransaction, onClose }: TransactionDetailModalProps) {
+  const { products, partners, usersList, userProfile, user, updateTransaction, transactions, hasPermission } = useAppContext();
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  
+  // Always get the freshest transaction from context
+  const transaction = transactions.find(t => t.id === initialTransaction.id) || initialTransaction;
+  
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteValue, setNoteValue] = useState(transaction.note || '');
   const [isSavingNote, setIsSavingNote] = useState(false);
@@ -22,6 +26,12 @@ export function TransactionDetailModal({ transaction, onClose }: TransactionDeta
       inputRef.current.focus();
     }
   }, [isEditingNote]);
+
+  useEffect(() => {
+    if (!isEditingNote) {
+      setNoteValue(transaction.note || '');
+    }
+  }, [transaction.note, isEditingNote]);
 
   const handleSaveNote = async () => {
     if (noteValue.trim() === transaction.note?.trim()) {
@@ -115,7 +125,7 @@ export function TransactionDetailModal({ transaction, onClose }: TransactionDeta
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-sm text-brand-text-sub font-semibold">Ghi chú</p>
-                  {!isEditingNote && (
+                  {!isEditingNote && hasPermission(transaction.type === 'IMPORT' ? 'imports' : 'exports', 'edit') && (
                     <button 
                        onClick={() => setIsEditingNote(true)} 
                        className="p-1 text-slate-400 hover:text-brand-primary hover:bg-blue-50 rounded transition-colors"
