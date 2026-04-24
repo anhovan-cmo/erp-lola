@@ -7,6 +7,7 @@ import Papa from 'papaparse';
 import { db, auth } from '../lib/firebase/config';
 import { doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { ProductDetailModal } from '../components/ProductDetailModal';
+import { ProductFormModal } from '../components/ProductFormModal';
 
 export function ProductList() {
   const { products } = useAppContext();
@@ -16,6 +17,7 @@ export function ProductList() {
   const [sortStockDir, setSortStockDir] = useState<'asc' | 'desc' | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   
   // New States
   const [notifyLowStock, setNotifyLowStock] = useState(false);
@@ -28,6 +30,9 @@ export function ProductList() {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   
   const [cols, setCols] = useState(() => {
     const saved = localStorage.getItem('productTableCols');
@@ -44,13 +49,27 @@ export function ProductList() {
       { id: 'cost', label: 'Giá Vốn', visible: true },
       { id: 'price', label: 'Giá Bán', visible: true },
       { id: 'stock', label: 'Tồn Lượng', visible: true },
-      { id: 'createdAt', label: 'Thời Gian', visible: true }
+      { id: 'updatedAt', label: 'Cập Nhật', visible: true },
+      { id: 'createdAt', label: 'Ngày Tạo', visible: true }
     ];
   });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uniqueBrands = useMemo(() => Array.from(new Set(products.map(p => p.brand || 'Khác'))).sort(), [products]);
+
+  // Keep selectedProduct in sync with products array (for edits)
+  React.useEffect(() => {
+    if (selectedProduct) {
+      const updated = products.find(p => p.id === selectedProduct.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedProduct)) {
+        setSelectedProduct(updated);
+      } else if (!updated) {
+        // Product was deleted
+        setSelectedProduct(null);
+      }
+    }
+  }, [products, selectedProduct]);
 
   const normalize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   
@@ -60,18 +79,31 @@ export function ProductList() {
     localStorage.setItem('autoSyncKiotViet', String(newVal));
   };
 
+  const syncRef = useRef(false);
+
   const executeKiotVietSync = async (isBackground = false) => {
+    if (syncRef.current) return; // Prevent concurrent syncs
+    syncRef.current = true;
     if (!isBackground) setSyncKiotVietStatus('Đang kết nối KiotViet...');
     
     let currentSkip = 0;
     let totalSynced = 0;
+    let newCount = 0;
+    let updateCount = 0;
     let hasMore = true;
 
     try {
       while (hasMore) {
-        if (!isBackground) setSyncKiotVietStatus(currentSkip === 0 ? 'Đang kéo CSDL...' : `Đã tải ${currentSkip} SP...`);
+        if (!isBackground) setSyncKiotVietStatus(currentSkip === 0 ? 'Đang kéo CSDL...' : `Đã kéo ${currentSkip} SP...`);
         
-        const res = await fetch(`/api/kiotviet/sync-products?skip=${currentSkip}`);
+        let res;
+        try {
+          res = await fetch(`/api/kiotviet/sync-products?skip=${currentSkip}`);
+        } catch(e) {
+          throw new Error(`Lỗi đường truyền (Mạng chập chờn) khi lấy trang ${currentSkip}. KịtViet đang bận hoặc gián đoạn mạng. ${e.message || ''}`);
+        }
+
+        
         let data;
         try {
            data = await res.json();
@@ -87,7 +119,7 @@ export function ProductList() {
         totalSynced += kvProducts.length;
         
         if (kvProducts.length > 0) {
-           if (!isBackground) setSyncKiotVietStatus(`Đang ghi ${kvProducts.length} SP vào CSDL...`);
+           if (!isBackground) setSyncKiotVietStatus(`Đang ghi ${kvProducts.length} SP (mới: ${newCount}, cũ: ${updateCount})...`);
            const now = serverTimestamp();
            let batch = writeBatch(db);
            let count = 0;
@@ -102,9 +134,25 @@ export function ProductList() {
      
              let itemStock = item.onHand || 0;
              if (item.inventories && item.inventories.length > 0) {
-                itemStock = item.inventories[0].onHand || 0;
+                itemStock = item.inventories.reduce((acc: number, inv: any) => acc + (inv.onHand || 0), 0);
              }
      
+             let itemCreatedAt: any = now;
+             if (item.createdDate) {
+                const parsed = new Date(item.createdDate);
+                if (!isNaN(parsed.getTime())) {
+                   itemCreatedAt = parsed.getTime(); 
+                }
+             }
+             
+             let itemModifiedAt: any = now;
+             if (item.modifiedDate) {
+                const parsedMod = new Date(item.modifiedDate);
+                if (!isNaN(parsedMod.getTime())) {
+                   itemModifiedAt = parsedMod.getTime();
+                }
+             }
+
              const updateData: any = {
                name: item.fullName,
                brand: item.categoryId ? `Danh mục KV (${item.categoryId || ''})` : 'Khác',
@@ -112,21 +160,16 @@ export function ProductList() {
                cost: item.cost || 0,
                stock: itemStock,
                image: imageUrl || "",
-               updatedAt: now
+               updatedAt: itemModifiedAt
              };
-     
+
              const existing = products.find(p => p.id === item.code);
              if (existing) {
                batch.update(docRef, updateData);
+               updateCount++;
              } else {
-               let itemCreatedAt: any = now;
-               if (item.createdDate) {
-                  const parsed = new Date(item.createdDate);
-                  if (!isNaN(parsed.getTime())) {
-                     itemCreatedAt = parsed.getTime(); 
-                  }
-               }
                batch.set(docRef, { ...updateData, id: item.code, createdAt: itemCreatedAt });
+               newCount++;
              }
      
              count++;
@@ -141,6 +184,7 @@ export function ProductList() {
 
         if (data.nextSkip && data.nextSkip > currentSkip) {
            currentSkip = data.nextSkip;
+           await new Promise(resolve => setTimeout(resolve, 300)); // Small delay to avoid overloading
         } else {
            hasMore = false;
         }
@@ -148,7 +192,7 @@ export function ProductList() {
       
       if (!isBackground) {
         setSyncKiotVietStatus(null);
-        alert(`Đã đồng bộ thành công tổng số ${totalSynced} sản phẩm từ KiotViet!`);
+        alert(`Đã lấy xong! Lấy từ KV: ${totalSynced} SP.\n- Cập nhật tồn kho/thông tin: ${updateCount} SP\n- Thêm mới: ${newCount} SP`);
       }
     } catch (e: any) {
        console.error("KiotViet Sync Error:", e);
@@ -156,6 +200,8 @@ export function ProductList() {
           alert('Lỗi đồng bộ: ' + e.message);
           setSyncKiotVietStatus(null);
        }
+    } finally {
+       syncRef.current = false;
     }
   };
 
@@ -174,7 +220,7 @@ export function ProductList() {
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedBrands, stockThreshold, sortStockDir]);
+  }, [searchTerm, selectedBrands, stockThreshold, sortStockDir, startDate, endDate]);
 
   let filteredProducts = useMemo(() => {
     const searchLower = normalize(searchTerm);
@@ -198,7 +244,24 @@ export function ProductList() {
         matchBrand = selectedBrands.includes(p.brand || 'Khác');
       }
 
-      return matchSearch && matchBrand;
+      // 3. Date Filter
+      let matchDate = true;
+      if (startDate || endDate) {
+         let pTime = p.createdAt?.toMillis ? p.createdAt.toMillis() : p.createdAt;
+         if (pTime && typeof pTime === 'number') {
+            if (startDate) {
+               const start = new Date(startDate).getTime();
+               if (!isNaN(start) && pTime < start) matchDate = false;
+            }
+            if (endDate) {
+               const endD = new Date(endDate);
+               endD.setHours(23, 59, 59, 999);
+               if (!isNaN(endD.getTime()) && pTime > endD.getTime()) matchDate = false;
+            }
+         }
+      }
+
+      return matchSearch && matchBrand && matchDate;
     });
 
     const thresholdValue = parseInt(stockThreshold);
@@ -210,6 +273,13 @@ export function ProductList() {
       result.sort((a,b) => a.stock - b.stock);
     } else if (sortStockDir === 'desc') {
       result.sort((a,b) => b.stock - a.stock);
+    } else {
+      // Default: Sort by newest updated
+      result.sort((a, b) => {
+         const aTime = a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (typeof a.updatedAt === 'number' ? a.updatedAt : 0);
+         const bTime = b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (typeof b.updatedAt === 'number' ? b.updatedAt : 0);
+         return bTime - aTime;
+      });
     }
 
     return result;
@@ -399,7 +469,7 @@ export function ProductList() {
           <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
 
           <button 
-            onClick={() => alert("Chức năng thêm thủ công đang được phát triển. Vui lòng nhập CSV để import sản phẩm hàng loạt (hỗ trợ đầy đủ admin) hoặc thêm mã sản phẩm trực tiếp từ phiếu nhập xuất.")}
+            onClick={() => setIsAddProductOpen(true)}
             className="bg-brand-primary text-white border-none py-2 px-4 rounded-[3px] font-semibold text-[14px] flex-1 md:flex-none">
             + Thêm Mới
           </button>
@@ -411,6 +481,23 @@ export function ProductList() {
           <div className="flex flex-wrap items-center gap-4 w-full">
             <h3 className="text-[15px] sm:text-[16px] font-semibold">Danh Sách Sản Phẩm</h3>
             
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] text-brand-text-sub font-medium">Từ ngày:</span>
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-32 px-2 py-1 text-[13px] border border-brand-border rounded-[3px] focus:outline-none focus:border-brand-primary"
+              />
+              <span className="text-[13px] text-brand-text-sub font-medium">Đến:</span>
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-32 px-2 py-1 text-[13px] border border-brand-border rounded-[3px] focus:outline-none focus:border-brand-primary"
+              />
+            </div>
+
             <div className="flex items-center gap-2">
               <Filter size={14} className="text-brand-text-sub" />
               <span className="text-[13px] text-brand-text-sub font-medium">Lọc tồn kho {'<'}</span>
@@ -579,6 +666,19 @@ export function ProductList() {
                       </td>
                     );
                     }
+                    if (col.id === 'updatedAt') {
+                      let dateStr = '---';
+                      if (product.updatedAt) {
+                         const date = product.updatedAt?.toMillis ? new Date(product.updatedAt.toMillis()) : new Date(product.updatedAt);
+                         if (!isNaN(date.getTime())) {
+                            dateStr = date.toLocaleString('vi-VN', { 
+                              day: '2-digit', month: '2-digit', year: 'numeric', 
+                              hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                            });
+                         }
+                      }
+                      return <td key={col.id} className="p-3 px-4 border-b border-brand-border text-brand-text-sub whitespace-nowrap text-[12px]">{dateStr}</td>;
+                    }
                     if (col.id === 'createdAt') {
                       let dateStr = '---';
                       if (product.createdAt) {
@@ -665,6 +765,10 @@ export function ProductList() {
             <X size={24} />
           </button>
         </div>
+      )}
+
+      {isAddProductOpen && (
+        <ProductFormModal onClose={() => setIsAddProductOpen(false)} />
       )}
     </>
   );

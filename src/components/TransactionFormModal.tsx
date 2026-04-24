@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { X, Search, Plus, Minus, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency } from '../lib/utils';
+import { ProductFormModal } from './ProductFormModal';
 
 interface TransactionFormModalProps {
   type: 'IMPORT' | 'EXPORT';
@@ -16,6 +17,7 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
   const [note, setNote] = useState('');
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
   const [cart, setCart] = useState<{ productId: string, name: string, price: number, cost: number, quantity: number, stock: number }[]>([]);
   const [isPartnerOpen, setIsPartnerOpen] = useState(false);
@@ -202,7 +204,15 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
           <div className="w-full md:w-1/2 p-4 border-b md:border-b-0 md:border-r border-gray-200 flex flex-col gap-4">
             
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Tìm Hàng Hóa</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-semibold text-gray-700">Tìm Hàng Hóa</label>
+                <button 
+                  onClick={() => setIsAddProductOpen(true)}
+                  className="text-xs text-blue-600 hover:underline flex items-center"
+                >
+                  <Plus size={12} className="mr-0.5" /> Tạo sản phẩm mới
+                </button>
+              </div>
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-3 text-gray-400" />
                 <input 
@@ -416,6 +426,15 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
           </button>
         </footer>
       </div>
+
+      {isAddProductOpen && (
+        <ProductFormModal 
+          onClose={() => setIsAddProductOpen(false)}
+          onSuccess={(newId) => {
+            setSearchTerm(newId);
+          }}
+        />
+      )}
     </div>
   );
 }

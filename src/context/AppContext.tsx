@@ -56,7 +56,7 @@ export const DEFAULT_PERMISSIONS: Record<Role, UserPermissions> = {
       }
     };
 
-export type Product = { id: string; name: string; brand: string; price: number; cost: number; stock: number; image: string; createdAt?: any; updatedAt?: any; };
+export type Product = { id: string; barcode?: string; name: string; brand: string; price: number; cost: number; stock: number; minStock?: number; maxStock?: number; weight?: number; sellDirectly?: boolean; bonusPoints?: boolean; image: string; createdAt?: any; updatedAt?: any; };
 export type TransactionItem = { productId: string; name: string; quantity: number; price: number; cost: number; };
 export type Transaction = { id: string; type: 'IMPORT' | 'EXPORT'; date: string; totalValue: number; costValue: number; note: string; partnerId: string; partnerName: string; userId: string; items?: TransactionItem[]; discount?: number; otherFees?: number; amountPaid?: number; createdAt?: any; updatedAt?: any; };
 export type Partner = { id: string; type: 'CUSTOMER' | 'SUPPLIER'; name: string; phone: string; totalReceivable: number; totalPayable: number; cccd?: string; mst?: string; address?: string; createdAt?: any; updatedAt?: any; };

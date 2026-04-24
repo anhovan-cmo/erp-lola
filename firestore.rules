@@ -26,14 +26,20 @@ service cloud.firestore {
     }
 
     function isValidProduct(data) {
-      return data.keys().hasOnly(['id', 'name', 'brand', 'price', 'cost', 'stock', 'image', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['id', 'barcode', 'name', 'brand', 'price', 'cost', 'stock', 'minStock', 'maxStock', 'weight', 'sellDirectly', 'bonusPoints', 'image', 'createdAt', 'updatedAt'])
         && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && (!('barcode' in data) || data.barcode == null || (data.barcode is string && data.barcode.size() <= 128))
         && data.name is string && data.name.size() > 0 && data.name.size() <= 500
         && (!('brand' in data) || data.brand == null || (data.brand is string && data.brand.size() <= 100))
         && data.price is number && data.price >= 0
         && data.cost is number && data.cost >= 0
         && data.stock is number
-        && (!('image' in data) || data.image == null || (data.image is string && data.image.size() <= 2048));
+        && (!('minStock' in data) || data.minStock == null || (data.minStock is number))
+        && (!('maxStock' in data) || data.maxStock == null || (data.maxStock is number))
+        && (!('weight' in data) || data.weight == null || (data.weight is number))
+        && (!('sellDirectly' in data) || data.sellDirectly == null || (data.sellDirectly is bool))
+        && (!('bonusPoints' in data) || data.bonusPoints == null || (data.bonusPoints is bool))
+        && (!('image' in data) || data.image == null || (data.image is string && data.image.size() <= 1048576));
     }
 
     function isValidPartner(data) {
@@ -81,16 +87,16 @@ service cloud.firestore {
       allow create: if isVerified() 
         && isValidId(productId) 
         && isValidProduct(incoming()) 
-        && incoming().createdAt == request.time;
+        && (incoming().createdAt == request.time || incoming().createdAt is number || isAdmin());
       allow update: if isVerified() 
         && isValidId(productId) 
         && isValidProduct(incoming()) 
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'brand', 'price', 'cost', 'stock', 'image', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['barcode', 'name', 'brand', 'price', 'cost', 'stock', 'minStock', 'maxStock', 'weight', 'sellDirectly', 'bonusPoints', 'image', 'updatedAt'])
           || isAdmin()
         )
-        && incoming().updatedAt == request.time
-        && incoming().createdAt == existing().createdAt;
+        && (incoming().updatedAt == request.time || incoming().updatedAt is number || isAdmin())
+        && (incoming().createdAt == existing().createdAt || isAdmin());
       allow delete: if isVerified() && isValidId(productId);
     }
 

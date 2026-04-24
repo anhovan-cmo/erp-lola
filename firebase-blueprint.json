@@ -19,11 +19,17 @@
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "barcode": { "type": "string" },
         "name": { "type": "string" },
         "brand": { "type": "string" },
         "price": { "type": "number" },
         "cost": { "type": "number" },
         "stock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "maxStock": { "type": "number" },
+        "weight": { "type": "number" },
+        "sellDirectly": { "type": "boolean" },
+        "bonusPoints": { "type": "boolean" },
         "image": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }

@@ -136,13 +136,15 @@ async function startServer() {
       let isMockTriggered = false;
       let currentSkip = skipParam;
 
-      while (hasMore && allData.length < 5000) { // Limit inside one request
+      // Limit inside one request to 50 to prevent Cloud Run timeouts.
+      // The frontend will handle pagination by calling this API multiple times.
+      while (hasMore && allData.length < 50) { 
         // Break early if we're nearing 20 seconds to prevent Cloud Run timeout
         if (Date.now() - startTime > 15000) {
            break;
         }
 
-        const url = `products?pageSize=100&skip=${currentSkip}&includeInventory=true`;
+        const url = `products?pageSize=50&skip=${currentSkip}&includeInventory=true`;
         const responseData = await fetchKiotVietPath(token, url);
         
         if (responseData && responseData.isMock) {
@@ -154,7 +156,7 @@ async function startServer() {
           allData = allData.concat(responseData.data);
           currentSkip += responseData.data.length;
           
-          if (responseData.data.length < 100) {
+          if (responseData.data.length < 50) {
              hasMore = false;
           } else {
              await new Promise(r => setTimeout(r, 200));

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, Trash2, ArrowLeftRight } from 'lucide-react';
+import { X, Trash2, ArrowLeftRight, Edit } from 'lucide-react';
 import { Product, useAppContext } from '../context/AppContext';
 import { formatCurrency, cn } from '../lib/utils';
 import { handleFirestoreError } from '../lib/firebase/errors';
 import { auth } from '../lib/firebase/config';
 import { ConfirmModal } from './ConfirmModal';
+import { ProductFormModal } from './ProductFormModal';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -15,6 +16,7 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
   const { transactions, deleteProduct, userProfile } = useAppContext();
   const [isZoomed, setIsZoomed] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Find all transactions that include this product
   const productTransactions = transactions.filter(t => {
@@ -41,6 +43,17 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
   };
 
   const canDelete = userProfile?.role === 'ADMIN' || userProfile?.role === 'ACCOUNTANT';
+  
+  const formatDate = (dateVal: any) => {
+    if (!dateVal) return '-';
+    if (dateVal.toMillis) {
+      return new Date(dateVal.toMillis()).toLocaleString('vi-VN');
+    }
+    if (typeof dateVal === 'number') {
+       return new Date(dateVal).toLocaleString('vi-VN');
+    }
+    return new Date(dateVal).toLocaleString('vi-VN');
+  };
 
   return (
     <div className="fixed inset-0 bg-[rgba(9,30,66,0.54)] flex items-center justify-center z-50 p-4">
@@ -71,14 +84,23 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
             <div className="flex-1">
               <h3 className="text-[18px] sm:text-xl font-bold text-brand-text mb-3 text-center sm:text-left">{product.name}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-[13px] sm:text-[14px]">
-                <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0"><span className="text-brand-text-sub">Mã hàng:</span> <strong className="ml-2 sm:ml-0">{product.id}</strong></div>
-                <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0"><span className="text-brand-text-sub">Thương hiệu:</span> <strong className="ml-2 sm:ml-0">{product.brand || '-'}</strong></div>
+                <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0"><span className="text-brand-text-sub">Mã hàng:</span> <strong className="ml-2 sm:ml-0">{product.id} {product.barcode && `(Mã vạch: ${product.barcode})`}</strong></div>
+                <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0"><span className="text-brand-text-sub">Nhóm/Thương hiệu:</span> <strong className="ml-2 sm:ml-0">{product.brand || '-'}</strong></div>
+                <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0"><span className="text-brand-text-sub">Ngày tạo:</span> <strong className="ml-2 sm:ml-0">{formatDate(product.createdAt)}</strong></div>
+                <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0"><span className="text-brand-text-sub">Cập nhật:</span> <strong className="ml-2 sm:ml-0">{formatDate(product.updatedAt)}</strong></div>
                 <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0"><span className="text-brand-text-sub">Tồn kho hiện tại:</span> 
                   <span className={cn("ml-2 font-bold px-2 py-0.5 rounded-[3px] text-[12px]", product.stock > 0 ? "bg-brand-tag-in-bg text-brand-tag-in-text" : "bg-brand-tag-out-bg text-brand-tag-out-text")}>
                     {product.stock > 0 ? product.stock : 'HẾT HÀNG'}
                   </span>
                 </div>
-                <div className="hidden sm:block"></div>
+                <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0">
+                  <span className="text-brand-text-sub">SL Định mức:</span> 
+                  <strong className="ml-2 sm:ml-0">{product.minStock || 0} - {product.maxStock || '?'}</strong>
+                </div>
+                <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0">
+                  <span className="text-brand-text-sub">Trọng lượng:</span> 
+                  <strong className="ml-2 sm:ml-0">{product.weight || 0} g</strong>
+                </div>
                 <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0"><span className="text-brand-text-sub">Giá vốn:</span> <strong className="text-brand-text-sub ml-2 sm:ml-0">{formatCurrency(product.cost)}</strong></div>
                 <div className="flex justify-between sm:block"><span className="text-brand-text-sub">Giá bán:</span> <strong className="text-brand-success ml-2 sm:ml-0">{formatCurrency(product.price)}</strong></div>
               </div>
@@ -125,9 +147,12 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
         </div>
         
         <div className="p-4 sm:p-5 border-t border-brand-border flex justify-between items-center gap-3 bg-[#f8f9fa]">
-          <div>
+          <div className="flex gap-2">
+            <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-3 py-2 text-brand-primary hover:bg-blue-50 rounded-[3px] font-semibold text-[13px] sm:text-sm transition-colors border border-transparent hover:border-blue-100">
+              <Edit size={16} /> <span className="hidden sm:inline">Sửa thông tin</span>
+            </button>
             {canDelete && (
-              <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-2 text-brand-danger hover:bg-red-50 rounded-[3px] font-semibold text-[13px] sm:text-sm transition-colors">
+              <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-2 text-brand-danger hover:bg-red-50 rounded-[3px] font-semibold text-[13px] sm:text-sm transition-colors border border-transparent hover:border-red-100">
                 <Trash2 size={16} /> <span className="hidden sm:inline">Xóa hàng hóa</span>
               </button>
             )}
@@ -156,6 +181,18 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
             <X size={24} />
           </button>
         </div>
+      )}
+
+      {isEditing && (
+        <ProductFormModal 
+          initialProduct={product}
+          onClose={() => setIsEditing(false)}
+          onSuccess={() => {
+            setIsEditing(false);
+            // Don't close the detail modal, it will auto-update because products list from context will auto-update or sync. 
+            // Wait, we just keep it open so user can see changes.
+          }}
+        />
       )}
 
       <ConfirmModal
