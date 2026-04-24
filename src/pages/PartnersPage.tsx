@@ -110,6 +110,9 @@ export function PartnersPage() {
     try {
       const res = await fetch('/api/kiotviet/sync-partners');
       const contentType = res.headers.get("content-type");
+      if (res.status === 404) {
+         throw new Error("Lỗi 404 - KiotViet yêu cầu NodeJS Backend, nhưng ứng dụng có vẻ đang chạy trên Web Hosting tĩnh (Static). Vui lòng cấu hình Reverse Proxy hoặc Host NodeJS.");
+      }
       if (!contentType || !contentType.includes("application/json")) {
          throw new Error("Lỗi API (máy chủ có thể đang khởi động lại). Vui lòng thử lại sau ít phút.");
       }

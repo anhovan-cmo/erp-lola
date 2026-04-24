@@ -33,6 +33,7 @@ export function ProductFormModal({ onClose, onSuccess, initialProduct }: Product
     minStock: initialProduct?.minStock?.toString() || '0',
     maxStock: initialProduct?.maxStock?.toString() || '999999999',
     weight: initialProduct?.weight?.toString() || '0',
+    description: initialProduct?.description || '',
     image: initialProduct?.image || '',
     sellDirectly: initialProduct?.sellDirectly ?? true,
     bonusPoints: initialProduct?.bonusPoints ?? true
@@ -90,6 +91,7 @@ export function ProductFormModal({ onClose, onSuccess, initialProduct }: Product
           minStock,
           maxStock,
           weight,
+          description: formData.description,
           sellDirectly: formData.sellDirectly,
           bonusPoints: formData.bonusPoints,
           image: formData.image.trim(),
@@ -117,6 +119,7 @@ export function ProductFormModal({ onClose, onSuccess, initialProduct }: Product
           minStock,
           maxStock,
           weight,
+          description: formData.description,
           sellDirectly: formData.sellDirectly,
           bonusPoints: formData.bonusPoints,
           image: formData.image.trim(),
@@ -133,7 +136,7 @@ export function ProductFormModal({ onClose, onSuccess, initialProduct }: Product
         setFormData({
           id: '', barcode: '', name: '', category: formData.category, brand: formData.brand,
           cost: '0', price: '0', stock: '0', minStock: '0', maxStock: '999999999',
-          weight: '0', image: '', sellDirectly: true, bonusPoints: true
+          weight: '0', description: '', image: '', sellDirectly: true, bonusPoints: true
         });
       } else {
         onClose();
@@ -465,6 +468,9 @@ export function ProductFormModal({ onClose, onSuccess, initialProduct }: Product
              <div className="bg-white p-5 rounded-sm border shadow-sm">
                  <h3 className="font-medium mb-3">Mô tả sản phẩm</h3>
                  <textarea 
+                   name="description"
+                   value={formData.description}
+                   onChange={handleChange}
                    rows={6}
                    className="w-full border p-3 text-sm rounded-[3px] focus:outline-none focus:border-[#0070f4]"
                    placeholder="Nhập mô tả..."

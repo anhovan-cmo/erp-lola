@@ -108,6 +108,9 @@ export function ProductList() {
         try {
            data = await res.json();
         } catch (err) {
+           if (res.status === 404) {
+              throw new Error(`KiotViet bị lỗi 404 - Có thể ứng dụng đang được host tại môi trường Tĩnh (Static, vd: erp.lola.com.vn) nhưng không có sẵn NodeJS Backend để gọi API bảo mật. Vui lòng deploy dự án lên môi trường có NodeJS server (Render, Vercel, VPS) hoặc cấu hình proxy.`);
+           }
            throw new Error(`Mất kết nối máy chủ (HTTP ${res.status}) - đang ở trang ${currentSkip}`);
         }
         

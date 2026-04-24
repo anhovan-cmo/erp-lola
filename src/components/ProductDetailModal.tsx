@@ -104,6 +104,13 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
                 <div className="flex justify-between sm:block border-b border-dashed border-gray-200 sm:border-0 pb-1 sm:pb-0"><span className="text-brand-text-sub">Giá vốn:</span> <strong className="text-brand-text-sub ml-2 sm:ml-0">{formatCurrency(product.cost)}</strong></div>
                 <div className="flex justify-between sm:block"><span className="text-brand-text-sub">Giá bán:</span> <strong className="text-brand-success ml-2 sm:ml-0">{formatCurrency(product.price)}</strong></div>
               </div>
+              
+              {product.description && (
+                <div className="mt-4 pt-3 border-t border-brand-border text-[13px] text-brand-text-sub whitespace-pre-wrap">
+                  <strong className="block mb-1">Mô tả:</strong>
+                  {product.description}
+                </div>
+              )}
             </div>
           </div>
 

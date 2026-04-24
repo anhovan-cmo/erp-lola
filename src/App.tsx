@@ -140,24 +140,17 @@ function AppContent() {
     );
   }
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard': return <Dashboard />;
-      case 'products': return <ProductList />;
-      case 'imports': return <Transactions type="IMPORT" />;
-      case 'exports': return <Transactions type="EXPORT" />;
-      case 'receivables': return <Debts type="RECEIVABLE" />;
-      case 'payables': return <Debts type="PAYABLE" />;
-      case 'partners': return <PartnersPage />;
-      case 'users': return <UsersPage />;
-      case 'logs': return <ActivityLogsPage />;
-      default: return <Dashboard />;
-    }
-  };
-
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {renderContent()}
+      <div className={activeTab === 'dashboard' ? 'h-full flex flex-col' : 'hidden'}><Dashboard /></div>
+      <div className={activeTab === 'products' ? 'h-full flex flex-col' : 'hidden'}><ProductList /></div>
+      <div className={activeTab === 'imports' ? 'h-full flex flex-col' : 'hidden'}><Transactions type="IMPORT" /></div>
+      <div className={activeTab === 'exports' ? 'h-full flex flex-col' : 'hidden'}><Transactions type="EXPORT" /></div>
+      <div className={activeTab === 'receivables' ? 'h-full flex flex-col' : 'hidden'}><Debts type="RECEIVABLE" /></div>
+      <div className={activeTab === 'payables' ? 'h-full flex flex-col' : 'hidden'}><Debts type="PAYABLE" /></div>
+      <div className={activeTab === 'partners' ? 'h-full flex flex-col' : 'hidden'}><PartnersPage /></div>
+      <div className={activeTab === 'users' ? 'h-full flex flex-col' : 'hidden'}><UsersPage /></div>
+      <div className={activeTab === 'logs' ? 'h-full flex flex-col' : 'hidden'}><ActivityLogsPage /></div>
     </Layout>
   );
 }
