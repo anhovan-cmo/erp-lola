@@ -9,11 +9,10 @@ import { doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { ProductDetailModal } from '../components/ProductDetailModal';
 import { ProductFormModal } from '../components/ProductFormModal';
 
-export function ProductList() {
+export function ProductList({ isActive }: { isActive?: boolean }) {
   const { products } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [importing, setImporting] = useState(false);
-  const [stockThreshold, setStockThreshold] = useState<string>('');
   const [sortStockDir, setSortStockDir] = useState<'asc' | 'desc' | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
@@ -98,8 +97,14 @@ export function ProductList() {
         
         let res;
         try {
-          res = await fetch(`/api/kiotviet/sync-products?skip=${currentSkip}`);
-        } catch(e) {
+          res = await fetch(`/api/kiotviet/sync-products?skip=${currentSkip}`, {
+            headers: {
+              'x-kv-client-id': localStorage.getItem('kiotviet_client_id') || '',
+              'x-kv-client-secret': localStorage.getItem('kiotviet_client_secret') || '',
+              'x-kv-retailer': localStorage.getItem('kiotviet_retailer') || ''
+            }
+          });
+        } catch(e: any) {
           throw new Error(`Lỗi đường truyền (Mạng chập chờn) khi lấy trang ${currentSkip}. KịtViet đang bận hoặc gián đoạn mạng. ${e.message || ''}`);
         }
 
@@ -208,22 +213,32 @@ export function ProductList() {
     }
   };
 
-  // Auto-sync polling every 30 seconds
+  // Auto-sync every 15 mins (900000ms) or when tab becomes active
+  const executeKiotVietSyncRef = useRef(executeKiotVietSync);
+  executeKiotVietSyncRef.current = executeKiotVietSync;
+
   React.useEffect(() => {
     let interval: NodeJS.Timeout;
+    
+    const runSync = () => {
+      executeKiotVietSyncRef.current(true); // run silently
+    };
+
     if (isAutoSync) {
-       interval = setInterval(() => {
-          executeKiotVietSync(true); // run silently
-       }, 30000); // 30s limit
+       // Also sync immediately when isActive becomes true and auto sync is on
+       if (isActive) {
+           runSync();
+       }
+       interval = setInterval(runSync, 900000); // 900000 = 15 minutes
     }
     return () => {
        if (interval) clearInterval(interval);
     };
-  }, [isAutoSync, products]);
+  }, [isAutoSync, isActive]); // Only re-run when auto sync is toggled or active tab changes
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedBrands, stockThreshold, sortStockDir, startDate, endDate]);
+  }, [searchTerm, selectedBrands, sortStockDir, startDate, endDate, notifyLowStock]);
 
   let filteredProducts = useMemo(() => {
     const searchLower = normalize(searchTerm);
@@ -267,10 +282,8 @@ export function ProductList() {
       return matchSearch && matchBrand && matchDate;
     });
 
-    const thresholdValue = parseInt(stockThreshold);
-    if (!isNaN(thresholdValue)) {
-      result = result.filter(p => p.stock < thresholdValue);
-    }
+    // Low stock warning is applied visually, no need to filter out items from the list here
+    
 
     if (sortStockDir === 'asc') {
       result.sort((a,b) => a.stock - b.stock);
@@ -286,7 +299,7 @@ export function ProductList() {
     }
 
     return result;
-  }, [products, searchTerm, selectedBrands, stockThreshold, sortStockDir]);
+  }, [products, searchTerm, selectedBrands, sortStockDir, startDate, endDate, notifyLowStock]);
 
   const totalPages = Math.ceil(filteredProducts.length / pageSize);
   const paginatedProducts = useMemo(() => {
@@ -440,7 +453,7 @@ export function ProductList() {
               onChange={handleAutoSyncToggle} 
               className="rounded border-gray-300 text-brand-primary"
             />
-            Tự động lấy KV (30s)
+            Tự động lấy KV (15 phút)
           </label>
           <button 
             disabled={!!syncKiotVietStatus}
@@ -502,23 +515,15 @@ export function ProductList() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Filter size={14} className="text-brand-text-sub" />
-              <span className="text-[13px] text-brand-text-sub font-medium">Lọc tồn kho {'<'}</span>
-              <input 
-                type="number" 
-                min="0"
-                value={stockThreshold}
-                onChange={(e) => setStockThreshold(e.target.value)}
-                placeholder="VD: 10"
-                className="w-16 px-2 py-1 text-[13px] border border-brand-border rounded-[3px] focus:outline-none focus:border-brand-primary"
-              />
-              <button
-                onClick={() => setNotifyLowStock(!notifyLowStock)}
-                className={`flex items-center justify-center p-1.5 rounded-[3px] border transition-colors ${notifyLowStock ? 'bg-orange-50 border-orange-300 text-orange-600' : 'bg-white border-brand-border text-brand-text-sub hover:bg-slate-50'}`}
-                title="Nhận thông báo khi tồn kho thấp"
-              >
-                <Bell size={14} />
-              </button>
+              <label className="flex items-center gap-2 text-[13px] bg-white px-3 py-1.5 rounded-[3px] border border-brand-border cursor-pointer hover:bg-slate-50 transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={notifyLowStock} 
+                  onChange={(e) => setNotifyLowStock(e.target.checked)} 
+                  className="rounded border-gray-300 text-brand-primary"
+                />
+                Hiện cảnh báo tồn kho thấp
+              </label>
             </div>
 
             <div className="relative">
@@ -655,12 +660,13 @@ export function ProductList() {
                     if (col.id === 'cost') return <td key={col.id} className="p-3 px-4 border-b border-brand-border font-medium text-brand-text-sub whitespace-nowrap">{formatCurrency(product.cost)}</td>;
                     if (col.id === 'price') return <td key={col.id} className="p-3 px-4 border-b border-brand-border font-semibold text-brand-success whitespace-nowrap">{formatCurrency(product.price)}</td>;
                     if (col.id === 'stock') {
-                      const isLowStock = notifyLowStock && parseInt(stockThreshold) >= 0 && product.stock <= parseInt(stockThreshold);
+                      const minVal = product.minStock || 0;
+                      const isLowStock = notifyLowStock && minVal > 0 && product.stock <= minVal;
                       return (
-                      <td key={col.id} className="p-3 pr-4 border-b border-brand-border text-center whitespace-nowrap">
+                      <td key={col.id} className={`p-3 pr-4 border-b border-brand-border text-center whitespace-nowrap ${isLowStock ? 'bg-red-50' : ''}`}>
                         <div className="flex items-center justify-center gap-2">
                           {product.stock > 0 ? (
-                            <span className={product.stock < 10 ? "bg-orange-100 text-orange-800 font-bold px-2 py-1 rounded-[3px] text-[11px]" : "bg-brand-tag-in-bg text-brand-tag-in-text font-bold px-2 py-1 rounded-[3px] text-[11px]"}>{product.stock}</span>
+                            <span className={isLowStock ? "bg-red-100 text-red-800 font-bold px-2 py-1 rounded-[3px] text-[11px]" : "bg-brand-tag-in-bg text-brand-tag-in-text font-bold px-2 py-1 rounded-[3px] text-[11px]"}>{product.stock}</span>
                           ) : (
                             <span className="bg-brand-tag-out-bg text-brand-tag-out-text font-bold px-2 py-1 rounded-[3px] text-[11px]">HẾT</span>
                           )}

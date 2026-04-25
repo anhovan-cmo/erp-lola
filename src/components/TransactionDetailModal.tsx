@@ -3,6 +3,7 @@ import { X, Calendar, User, FileText, ArrowRightCircle, ArrowLeftCircle, Printer
 import { formatCurrency, cn } from '../lib/utils';
 import { Transaction, useAppContext } from '../context/AppContext';
 import { PrintPreviewModal } from './PrintPreviewModal';
+import { TransactionFormModal } from './TransactionFormModal';
 
 interface TransactionDetailModalProps {
   transaction: Transaction;
@@ -12,6 +13,7 @@ interface TransactionDetailModalProps {
 export function TransactionDetailModal({ transaction: initialTransaction, onClose }: TransactionDetailModalProps) {
   const { products, partners, usersList, userProfile, user, updateTransaction, transactions, hasPermission } = useAppContext();
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [isFullEditing, setIsFullEditing] = useState(false);
   
   // Always get the freshest transaction from context
   const transaction = transactions.find(t => t.id === initialTransaction.id) || initialTransaction;
@@ -73,6 +75,14 @@ export function TransactionDetailModal({ transaction: initialTransaction, onClos
     return <PrintPreviewModal transaction={transaction} onClose={() => setShowPrintPreview(false)} />;
   }
 
+  if (isFullEditing) {
+    return <TransactionFormModal 
+              type={transaction.type} 
+              initialTransaction={transaction}
+              onClose={() => setIsFullEditing(false)} 
+           />;
+  }
+
   return (
     <div className="fixed inset-0 bg-[rgba(9,30,66,0.54)] flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-[4px] w-full max-w-[800px] shadow-lg flex flex-col max-h-[90vh] overflow-hidden">
@@ -80,9 +90,19 @@ export function TransactionDetailModal({ transaction: initialTransaction, onClos
           <h2 className="text-[18px] sm:text-[20px] font-semibold text-brand-text flex items-center gap-2">
             Chi tiết giao dịch: <span className="font-mono text-brand-primary">{transaction.id}</span>
           </h2>
-          <button onClick={onClose} className="text-brand-text-sub hover:text-brand-text">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            {hasPermission(transaction.type === 'IMPORT' ? 'imports' : 'exports', 'edit') && (
+              <button 
+                onClick={() => setIsFullEditing(true)} 
+                className="flex items-center gap-1.5 px-3 py-1.5 text-brand-primary bg-blue-50 bg-opacity-50 hover:bg-opacity-100 rounded-[3px] text-sm font-medium transition-colors"
+              >
+                <Edit3 size={16} /> Sửa phiếu
+              </button>
+            )}
+            <button onClick={onClose} className="text-brand-text-sub hover:text-brand-text ml-2">
+              <X size={20} />
+            </button>
+          </div>
         </div>
         
         <div className="p-4 sm:p-6 flex-1 overflow-y-auto w-full">

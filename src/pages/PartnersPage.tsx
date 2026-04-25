@@ -108,7 +108,13 @@ export function PartnersPage() {
     setSyncProgress({ status: 'FETCHING', saved: 0, total: 0, message: 'Đang kết nối KiotViet và tải danh sách...' });
     
     try {
-      const res = await fetch('/api/kiotviet/sync-partners');
+      const res = await fetch('/api/kiotviet/sync-partners', {
+        headers: {
+          'x-kv-client-id': localStorage.getItem('kiotviet_client_id') || '',
+          'x-kv-client-secret': localStorage.getItem('kiotviet_client_secret') || '',
+          'x-kv-retailer': localStorage.getItem('kiotviet_retailer') || ''
+        }
+      });
       const contentType = res.headers.get("content-type");
       if (res.status === 404) {
          throw new Error("Lỗi 404 - KiotViet yêu cầu NodeJS Backend, nhưng ứng dụng có vẻ đang chạy trên Web Hosting tĩnh (Static). Vui lòng cấu hình Reverse Proxy hoặc Host NodeJS.");
@@ -124,45 +130,7 @@ export function PartnersPage() {
       let suppliers = data.suppliers || [];
 
       if (data.isMock) {
-        setSyncProgress({ status: 'FETCHING', saved: 0, total: 0, message: 'Đang dùng Dữ liệu Demo giả lập Nợ...' });
-        await new Promise(r => setTimeout(r, 1500));
-        
-        // Generate mock data reflecting existing partners so debt actually updates!
-        customers = partners.filter(p => p.type === 'CUSTOMER').map(p => ({
-          id: p.id,
-          code: p.id,
-          name: p.name,
-          contactNumber: p.phone,
-          address: p.address,
-          debt: Math.floor(Math.random() * 50) * 100000 + 500000 // 500k to 5.5M
-        }));
-
-        suppliers = partners.filter(p => p.type === 'SUPPLIER').map(p => ({
-          id: p.id,
-          code: p.id,
-          name: p.name,
-          contactNumber: p.phone,
-          address: p.address,
-          debt: Math.floor(Math.random() * 100) * 100000 + 1000000 // 1M to 11M
-        }));
-        if (customers.length === 0 && suppliers.length === 0) {
-          customers.push({
-            id: `KV_KH_MOCK_1`,
-            code: `KV_KH_MOCK_1`,
-            name: `Khách hàng 1 (Dữ liệu Demo)`,
-            contactNumber: `0901234567`,
-            address: `Hà Nội`,
-            debt: 5000000
-          });
-          suppliers.push({
-            id: `KV_NCC_MOCK_1`,
-            code: `KV_NCC_MOCK_1`,
-            name: `Nhà CC 1 (Dữ liệu Demo)`,
-            contactNumber: `0987654321`,
-            address: `Hồ Chí Minh`,
-            debt: -3000000
-          });
-        }
+         throw new Error("Lỗi kết nối KiotViet. Không thể đồng bộ bằng Dữ liệu Demo. Vui lòng thiết lập KIOTVIET_CLIENT_ID trong Cài đặt Environment Variables.");
       }
 
       const totalItems = customers.length + suppliers.length;
@@ -344,6 +312,44 @@ export function PartnersPage() {
             />
           </div>
 
+          <button 
+            disabled={syncingKiotViet}
+            onClick={async () => {
+              if (window.confirm("Bạn có chắc muốn xoá toàn bộ dữ liệu Đối Tác Demo (KiotViet Lỗi/Mock)?")) {
+                try {
+                  setSyncingKiotViet(true);
+                  const toDelete = partners.filter(p => p.name.includes('Demo') || p.name.includes('KiotViet Lỗi'));
+                  if(toDelete.length === 0) return alert('Không có dữ liệu chứa từ Demo hoặc Lỗi!');
+                  
+                  const confirmed = window.confirm(`Đã tìm thấy ${toDelete.length} dòng dữ liệu Lỗi/Demo. Bấm OK để Xóa Khỏi Hệ Thống vĩnh viễn.`);
+                  if (!confirmed) return;
+                  
+                  // Firebase batch deletes max 500
+                  let idx = 0;
+                  while (idx < toDelete.length) {
+                     const batch = writeBatch(db);
+                     const chunk = toDelete.slice(idx, idx + 400);
+                     for (const p of chunk) {
+                        batch.delete(doc(db, 'partners', p.id));
+                     }
+                     await batch.commit();
+                     idx += 400;
+                  }
+                  alert(`Đã xoá ${toDelete.length} dữ liệu demo/lỗi thành công!`);
+                } catch(e: any) {
+                  console.error(e);
+                  alert(e.message);
+                } finally {
+                  setSyncingKiotViet(false);
+                }
+              }
+            }}
+            className="bg-orange-50 text-orange-600 border border-orange-200 py-2 px-3 rounded-[3px] font-semibold text-[13px] hover:bg-orange-100 transition min-w-[100px] flex-1 sm:flex-none"
+            title="Dọn Dẹp Dữ Liệu Lỗi/Demo KiotViet"
+          >
+            <Trash2 size={16} className="inline mr-1.5" />
+            Dọn Dữ Liệu Lỗi
+          </button>
           <button 
             onClick={executeResetDebts}
             className="bg-red-50 text-brand-danger border border-red-200 py-2 px-3 rounded-[3px] font-semibold text-[13px] hover:bg-red-100 transition min-w-[100px] flex-1 sm:flex-none"

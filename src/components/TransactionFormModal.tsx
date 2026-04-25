@@ -1,33 +1,47 @@
 import React, { useState, useMemo } from 'react';
 import { X, Search, Plus, Minus, Trash2 } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useAppContext, Transaction } from '../context/AppContext';
 import { formatCurrency } from '../lib/utils';
 import { ProductFormModal } from './ProductFormModal';
 
 interface TransactionFormModalProps {
   type: 'IMPORT' | 'EXPORT';
   onClose: () => void;
+  initialTransaction?: Transaction;
 }
 
-export function TransactionFormModal({ type, onClose }: TransactionFormModalProps) {
-  const { products, partners, addTransaction } = useAppContext();
+export function TransactionFormModal({ type, onClose, initialTransaction }: TransactionFormModalProps) {
+  const { products, partners, addTransaction, editFullTransaction } = useAppContext();
   
-  const [selectedPartnerId, setSelectedPartnerId] = useState('');
+  const [selectedPartnerId, setSelectedPartnerId] = useState(initialTransaction?.partnerId || '');
   const [isDebt, setIsDebt] = useState(false);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(initialTransaction?.note || '');
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
-  const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
-  const [cart, setCart] = useState<{ productId: string, name: string, price: number, cost: number, quantity: number, stock: number }[]>([]);
+  const [partnerSearchTerm, setPartnerSearchTerm] = useState(
+    initialTransaction?.partnerId ? (partners.find(p => p.id === initialTransaction.partnerId)?.name || initialTransaction.partnerName || '') : ''
+  );
+  
+  const [cart, setCart] = useState<{ productId: string, name: string, price: number, cost: number, quantity: number, stock: number }[]>(
+    initialTransaction?.items ? initialTransaction.items.map(i => ({
+      productId: i.productId,
+      name: i.name,
+      price: i.price,
+      cost: i.cost || 0,
+      quantity: i.quantity,
+      stock: products.find(p => p.id === i.productId)?.stock || 0
+    })) : []
+  );
   const [isPartnerOpen, setIsPartnerOpen] = useState(false);
   
-  const [discountStr, setDiscountStr] = useState<string>('');
-  const [otherFeesStr, setOtherFeesStr] = useState<string>('');
-  const [amountPaidStr, setAmountPaidStr] = useState<string>('0');
-  const [isAmountTouched, setIsAmountTouched] = useState(false);
+  const [discountStr, setDiscountStr] = useState<string>(initialTransaction?.discount ? String(initialTransaction.discount) : '');
+  const [otherFeesStr, setOtherFeesStr] = useState<string>(initialTransaction?.otherFees ? String(initialTransaction.otherFees) : '');
+  const [amountPaidStr, setAmountPaidStr] = useState<string>(initialTransaction?.amountPaid !== undefined ? String(initialTransaction.amountPaid) : '0');
+  const [isAmountTouched, setIsAmountTouched] = useState(!!initialTransaction);
 
   const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const formatNumberInput = (val: number | string) => {
     if (!val) return '';
@@ -126,8 +140,12 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
     // Kiểm tra cấm xuất âm
     if (type === 'EXPORT') {
       for (const item of cart) {
-        if (item.quantity > item.stock) {
-          alert(`Lỗi: Sản phẩm "${item.name}" vượt quá số lượng tồn kho (Tồn: ${item.stock}, Xuất: ${item.quantity}). Không được phép xuất âm.`);
+        // If editing, the original quantity was already deducted from stock
+        const originalQty = initialTransaction?.items?.find(i => i.productId === item.productId)?.quantity || 0;
+        const actualAvailableStock = item.stock + originalQty;
+        
+        if (item.quantity > actualAvailableStock) {
+          alert(`Lỗi: Sản phẩm "${item.name}" vượt quá số lượng tồn kho (Tồn: ${actualAvailableStock}, Xuất: ${item.quantity}). Không được phép xuất âm.`);
           return;
         }
       }
@@ -175,11 +193,15 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
       const computedDebtAmount = totalPayable - amountPaid;
       const requiresDebt = computedDebtAmount !== 0;
       
-      await addTransaction(txObj, prodChanges, selectedPartnerId, requiresDebt, computedDebtAmount);
+      if (initialTransaction) {
+        await editFullTransaction(initialTransaction, txObj, prodChanges, selectedPartnerId, computedDebtAmount);
+      } else {
+        await addTransaction(txObj, prodChanges, selectedPartnerId, requiresDebt, computedDebtAmount);
+      }
       onClose();
     } catch (error: any) {
-      console.error(error);
-      alert(`Lỗi khi lưu: ${error.message}`);
+      console.error("Full Error:", error);
+      setErrorMsg(`Lỗi hệ thống: ${error.message} - Xem console F12 để biết chi tiết.`);
     } finally {
       setSaving(false);
     }
@@ -410,20 +432,25 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
           </div>
         </div>
 
-        <footer className="p-4 bg-gray-100 border-t border-gray-200 flex justify-end gap-3 rounded-b-lg">
-          <button 
-            onClick={onClose} 
-            className="px-6 py-2 bg-white border border-gray-300 font-semibold rounded text-sm hover:bg-gray-50"
-          >
-            Hủy Bỏ
-          </button>
-          <button 
-            disabled={saving}
-            onClick={handleSave}
-            className="px-6 py-2 bg-blue-600 text-white font-semibold rounded text-sm hover:bg-blue-700 disabled:opacity-50"
-          >
-            {saving ? 'Đang Xử Lý...' : 'Hoàn Tất Giao Dịch'}
-          </button>
+        <footer className="p-4 bg-gray-100 border-t border-gray-200 flex justify-between items-center gap-3 rounded-b-lg">
+          <div className="flex-1 text-sm text-red-600 font-medium">
+             {errorMsg}
+          </div>
+          <div className="flex gap-3">
+            <button 
+              onClick={onClose} 
+              className="px-6 py-2 bg-white border border-gray-300 font-semibold rounded text-sm hover:bg-gray-50"
+            >
+              Hủy Bỏ
+            </button>
+            <button 
+              disabled={saving}
+              onClick={handleSave}
+              className="px-6 py-2 bg-blue-600 text-white font-semibold rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? 'Đang Xử Lý...' : 'Hoàn Tất Giao Dịch'}
+            </button>
+          </div>
         </footer>
       </div>
 

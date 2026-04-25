@@ -73,6 +73,7 @@ interface AppState {
   updateUserPermissions: (userId: string, permissions: UserPermissions) => Promise<void>;
   hasPermission: (module: string, action: keyof AppPermission) => boolean;
   addTransaction: (tx: any, prodChanges: any[], partnerId: string, isDebt: boolean, debtAmount?: number) => Promise<void>;
+  editFullTransaction: (originalTx: Transaction, newTxObj: any, newProductChanges: any[], newPartnerId: string, newDebtAmount: number) => Promise<void>;
   updatePartnerDebt: (partnerId: string, amountToReduce: number, debtType: 'Receivable' | 'Payable') => Promise<void>;
   updateUserRole: (userId: string, newRole: Role) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
@@ -329,6 +330,108 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     logActivity('TẠO MỚI', 'GIAO DỊCH', `Tạo phiếu ${txObj.type === 'IMPORT' ? 'Nhập kho' : 'Xuất kho'} trị giá ${txObj.totalValue}`);
   };
 
+  const editFullTransaction = async (
+    originalTx: Transaction,
+    newTxObj: any, 
+    newProductChanges: {id: string, qtyChange: number}[], 
+    newPartnerId: string,
+    newDebtAmount: number
+  ) => {
+    if (!user) throw new Error("Must be logged in.");
+    
+    // Authorization check
+    let moduleName = 'transactions';
+    if (originalTx.type === 'IMPORT') moduleName = 'imports';
+    if (originalTx.type === 'EXPORT') moduleName = 'exports';
+    
+    if (!hasPermission(moduleName, 'edit')) {
+      throw new Error('Permission denied');
+    }
+
+    const batch = writeBatch(db);
+    const now = serverTimestamp();
+    
+    // Create maps for fast lookups
+    const productMap = new Map(products.map(p => [p.id, p]));
+    const partnerMap = new Map(partners.map(p => [p.id, p]));
+
+    // 1. Revert original stock
+    const stockChanges = new Map<string, number>();
+    
+    const origItems = originalTx.items || [];
+    origItems.forEach(item => {
+      const revertQty = originalTx.type === 'IMPORT' ? -item.quantity : item.quantity;
+      stockChanges.set(item.productId, (stockChanges.get(item.productId) || 0) + revertQty);
+    });
+    
+    // 2. Apply new stock changes
+    newProductChanges.forEach(pc => {
+       stockChanges.set(pc.id, (stockChanges.get(pc.id) || 0) + pc.qtyChange);
+    });
+    
+    // Update products in batch
+    stockChanges.forEach((change, productId) => {
+       if (change === 0) return; // No net change
+       const existingProduct = productMap.get(productId);
+       if (existingProduct) {
+         batch.update(doc(db, 'products', productId), {
+           stock: existingProduct.stock + change,
+           updatedAt: now
+         });
+       }
+    });
+
+    // 3. Revert original debt
+    const origTotalPayable = (originalTx.totalValue || 0) - (originalTx.discount || 0) + (originalTx.otherFees || 0);
+    const origDebt = origTotalPayable - (originalTx.amountPaid || 0);
+    
+    const debtChanges = new Map<string, { dRec: number, dPay: number }>();
+    
+    if (origDebt !== 0 && originalTx.partnerId) {
+        const changes = debtChanges.get(originalTx.partnerId) || { dRec: 0, dPay: 0 };
+        if (originalTx.type === 'EXPORT') {
+            changes.dRec -= origDebt;
+        } else {
+            changes.dPay -= origDebt;
+        }
+        debtChanges.set(originalTx.partnerId, changes);
+    }
+
+    // 4. Apply new debt
+    if (newDebtAmount !== 0 && newPartnerId) {
+        const changes = debtChanges.get(newPartnerId) || { dRec: 0, dPay: 0 };
+        if (newTxObj.type === 'EXPORT') {
+            changes.dRec += newDebtAmount;
+        } else {
+            changes.dPay += newDebtAmount;
+        }
+        debtChanges.set(newPartnerId, changes);
+    }
+
+    // Update partners in batch
+    debtChanges.forEach((changes, partnerId) => {
+       if (changes.dRec === 0 && changes.dPay === 0) return;
+       const existing = partnerMap.get(partnerId);
+       if (existing) {
+         batch.update(doc(db, 'partners', partnerId), {
+           totalReceivable: existing.totalReceivable + changes.dRec,
+           totalPayable: existing.totalPayable + changes.dPay,
+           updatedAt: now
+         });
+       }
+    });
+
+    // 5. Update Transaction
+    const txRef = doc(db, 'transactions', originalTx.id);
+    batch.update(txRef, {
+      ...newTxObj,
+      updatedAt: now
+    });
+
+    await batch.commit();
+    logActivity('CẬP NHẬT', 'GIAO DỊCH', `Sửa thông tin phiếu ${originalTx.id}`);
+  };
+
   const updatePartnerDebt = async (partnerId: string, amountToReduce: number, debtType: 'Receivable' | 'Payable') => {
     if (!user) throw new Error('Not logged in');
     const partner = partners.find(p => p.id === partnerId);
@@ -438,7 +541,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{ 
       user, userProfile, loading, products, transactions, partners, usersList, 
-      login, addTransaction, updateTransaction, updatePartnerDebt, updateUserRole, updateUserPermissions, hasPermission, deleteProduct,
+      login, addTransaction, editFullTransaction, updateTransaction, updatePartnerDebt, updateUserRole, updateUserPermissions, hasPermission, deleteProduct,
       addPartner, updatePartner, deletePartner, deleteTransaction, deleteUser,
       logActivity
     }}>

@@ -10,7 +10,8 @@ import {
   Users,
   Menu,
   X,
-  History
+  History,
+  Settings
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAppContext } from '../context/AppContext';
@@ -30,6 +31,7 @@ export function Layout({ children, activeTab, setActiveTab }: { children: ReactN
     { id: 'partners', label: 'Khách Hàng & NCC', icon: UserCircle },
     { id: 'users', label: 'Quản Lý Nhân Viên', icon: Users },
     { id: 'logs', label: 'Nhật Ký Hoạt Động', icon: History },
+    { id: 'settings', label: 'Cài Đặt', icon: Settings },
   ];
 
   const visibleTabs = allTabs.filter(t => hasPermission(t.id, 'view'));

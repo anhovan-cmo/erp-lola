@@ -7,6 +7,7 @@ import { Debts } from './pages/Debts';
 import { PartnersPage } from './pages/PartnersPage';
 import { UsersPage } from './pages/Users';
 import { ActivityLogsPage } from './pages/ActivityLogsPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { LogIn, UserPlus } from 'lucide-react';
 import { auth } from './lib/firebase/config';
@@ -143,7 +144,7 @@ function AppContent() {
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
       <div className={activeTab === 'dashboard' ? 'h-full flex flex-col' : 'hidden'}><Dashboard /></div>
-      <div className={activeTab === 'products' ? 'h-full flex flex-col' : 'hidden'}><ProductList /></div>
+      <div className={activeTab === 'products' ? 'h-full flex flex-col' : 'hidden'}><ProductList isActive={activeTab === 'products'} /></div>
       <div className={activeTab === 'imports' ? 'h-full flex flex-col' : 'hidden'}><Transactions type="IMPORT" /></div>
       <div className={activeTab === 'exports' ? 'h-full flex flex-col' : 'hidden'}><Transactions type="EXPORT" /></div>
       <div className={activeTab === 'receivables' ? 'h-full flex flex-col' : 'hidden'}><Debts type="RECEIVABLE" /></div>
@@ -151,6 +152,7 @@ function AppContent() {
       <div className={activeTab === 'partners' ? 'h-full flex flex-col' : 'hidden'}><PartnersPage /></div>
       <div className={activeTab === 'users' ? 'h-full flex flex-col' : 'hidden'}><UsersPage /></div>
       <div className={activeTab === 'logs' ? 'h-full flex flex-col' : 'hidden'}><ActivityLogsPage /></div>
+      <div className={activeTab === 'settings' ? 'h-full flex flex-col' : 'hidden'}><SettingsPage /></div>
     </Layout>
   );
 }
