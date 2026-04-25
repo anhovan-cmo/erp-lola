@@ -63,6 +63,12 @@ export function SettingsPage() {
         },
         body: JSON.stringify(payload)
       });
+      
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error(`TRẠNG THÁI MÔI TRƯỜNG KHÔNG HỢP LỆ:\n\nHosting hiện tại của bạn không hỗ trợ (hoặc chưa bật) NodeJS Backend. Mã nguồn này cần máy chủ Node (để làm trạm trung chuyển - proxy) vì KiotViet chặn trình duyệt gọi API trực tiếp (lỗi CORS).\n\nCách khắc phục:\n1. Nếu dùng cPanel/Hostinger: Tìm mục 'Setup Node.js App' và chạy file 'server.ts'.\n2. Hoặc: Triển khai mã nguồn này lên Vercel, Render hoặc VPS.\n3. Nếu bạn muốn deploy lên Vercel, hãy yêu cầu Agent cấu hình thư mục /api.`);
+      }
+      
       const data = await res.json();
       if (data.success) {
         setCheckStatus('success');
