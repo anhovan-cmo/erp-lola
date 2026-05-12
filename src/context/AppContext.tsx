@@ -173,9 +173,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTransactions(txSnap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction)).sort(sortByNewest));
         setPartners(partnersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Partner)).sort(sortByNewest));
 
-        if (userProfile?.role === 'ADMIN') {
-          const usersSnap = await getDocs(collection(db, 'users'));
-          setUsersList(usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile)));
+        if (userProfile?.role === 'ADMIN' || hasPermission('settings', 'view') || hasPermission('products', 'create') || hasPermission('partners', 'create')) {
+           const usersSnap = await getDocs(collection(db, 'users'));
+           setUsersList(usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile)));
+           
+           // Fetch KiotViet settings to put into localStorage so that sync API calls work correctly
+           try {
+             const kiotvietSnap = await getDoc(doc(db, 'settings', 'kiotviet'));
+             if (kiotvietSnap.exists()) {
+               const data = kiotvietSnap.data();
+               if (data.clientId) localStorage.setItem('kiotviet_client_id', data.clientId);
+               if (data.clientSecret) localStorage.setItem('kiotviet_client_secret', data.clientSecret);
+               if (data.retailer) localStorage.setItem('kiotviet_retailer', data.retailer);
+             }
+           } catch (e) {
+             console.log("Could not load KiotViet settings globally", e);
+           }
         }
       } catch (err) {
         console.error("Lỗi khi tải dữ liệu tĩnh do Quota hoặc Mạng:", err);

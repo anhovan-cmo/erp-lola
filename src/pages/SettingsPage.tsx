@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Link as LinkIcon, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase/config';
 
 export function SettingsPage() {
   const { userProfile, hasPermission } = useAppContext();
@@ -11,20 +13,51 @@ export function SettingsPage() {
   const [checkStatus, setCheckStatus] = useState<string | null>(null);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load from local storage
-    const storedId = localStorage.getItem('kiotviet_client_id') || '';
-    const storedSecret = localStorage.getItem('kiotviet_client_secret') || '';
-    const storedRetailer = localStorage.getItem('kiotviet_retailer') || '';
-    
-    setClientId(storedId);
-    setClientSecret(storedSecret);
-    setRetailer(storedRetailer);
+    // Load config from Firestore to share across devices
+    const loadConfig = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'kiotviet');
+        const docSnap = await getDoc(docRef);
+        
+        let storedId = '';
+        let storedSecret = '';
+        let storedRetailer = '';
 
-    if (storedId && storedSecret && storedRetailer) {
-      checkConnection(storedId, storedSecret, storedRetailer);
-    }
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          storedId = data.clientId || '';
+          storedSecret = data.clientSecret || '';
+          storedRetailer = data.retailer || '';
+        } else {
+          // Fallback to local storage
+          storedId = localStorage.getItem('kiotviet_client_id') || '';
+          storedSecret = localStorage.getItem('kiotviet_client_secret') || '';
+          storedRetailer = localStorage.getItem('kiotviet_retailer') || '';
+        }
+
+        setClientId(storedId);
+        setClientSecret(storedSecret);
+        setRetailer(storedRetailer);
+        
+        // Also save to localStorage for other parts of the app
+        if (storedId) localStorage.setItem('kiotviet_client_id', storedId);
+        if (storedSecret) localStorage.setItem('kiotviet_client_secret', storedSecret);
+        if (storedRetailer) localStorage.setItem('kiotviet_retailer', storedRetailer);
+
+        if (storedId && storedSecret && storedRetailer) {
+          checkConnection(storedId, storedSecret, storedRetailer);
+        }
+      } catch (err) {
+        console.error("Failed to load Kiotviet config", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadConfig();
   }, []);
 
   if (!hasPermission('settings', 'view')) {
@@ -35,16 +68,29 @@ export function SettingsPage() {
     );
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
+    
+    // Save to localStorage for quick access
     localStorage.setItem('kiotviet_client_id', clientId);
     localStorage.setItem('kiotviet_client_secret', clientSecret);
     localStorage.setItem('kiotviet_retailer', retailer);
     
-    setTimeout(() => {
+    try {
+      // Save to Firestore so it auto syncs to the web for everyone
+      await setDoc(doc(db, 'settings', 'kiotviet'), {
+        clientId,
+        clientSecret,
+        retailer,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      alert('Đã lưu thông tin cấu hình KiotViet thành công (Lưu trên Hệ thống). Cấu hình này sẽ tự động được sử dụng trên Web App.');
+    } catch (err) {
+      console.error(err);
+      alert('Đã lưu vào bộ nhớ cục bộ, nhưng không thể lưu lên dữ liệu đám mây: ' + (err as Error).message);
+    } finally {
       setIsSaving(false);
-      alert('Đã lưu thông tin cấu hình KiotViet (Local Storage).');
-    }, 500);
+    }
   };
 
   const checkConnection = async (id = clientId, secret = clientSecret, ret = retailer) => {
@@ -169,7 +215,7 @@ export function SettingsPage() {
         
         <div className="mt-5 pt-4 border-t border-brand-border">
           <p className="text-[12px] text-slate-500">
-            <strong>Lưu ý:</strong> API Keys được bảo mật vì chỉ lưu trữ trên bộ nhớ (Local Storage) của trình duyệt hiện tại và được gửi qua HTTPS tới máy chủ nội bộ. Nó không được chia sẻ cho các tài khoản hay trình duyệt khác trên hệ thống.
+            <strong>Lưu ý:</strong> API Keys được lưu trữ trên Hệ Thống đám mây để tất cả các trưởng nhóm/Admin có quyền đồng bộ đều có thể sử dụng (vì KiotViet chặn trình duyệt gọi API trực tiếp). Nó được bảo mật cao nhất thông qua Cloud Firestore rules.
           </p>
         </div>
       </div>

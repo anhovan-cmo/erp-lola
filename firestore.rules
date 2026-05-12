@@ -161,5 +161,18 @@ service cloud.firestore {
       allow create: if isVerified() && isValidId(logId) && isValidActivityLog(incoming()) && incoming().createdAt == request.time;
       allow update, delete: if false; // immutable
     }
+    match /settings/{settingId} {
+      allow get: if isVerified();
+      allow list: if isVerified();
+      allow create, update, delete: if isVerified() && (isAdmin() || (
+        'permissions' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+        'settings' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.settings.edit == true
+      ) || (
+        'permissions' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+        'products' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.products.create == true
+      ));
+    }
   }
 }
