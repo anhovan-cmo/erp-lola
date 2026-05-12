@@ -29,6 +29,24 @@ function AppContent() {
     }
   }, [userProfile?.role]);
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setAuthError('Vui lòng nhập thư điện tử (email) của bạn vào ô trên để nhận link đặt lại mật khẩu.');
+      return;
+    }
+    setIsLoadingAuth(true);
+    setAuthError('');
+    try {
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      await sendPasswordResetEmail(auth, email);
+      setAuthError(`Đã gửi email khôi phục mật khẩu tới: ${email}. Vui lòng kiểm tra hộp thư.`);
+    } catch (err: any) {
+      setAuthError('Lỗi gửi email: ' + err.message);
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  };
+
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -102,9 +120,12 @@ function AppContent() {
             >
               {isLoadingAuth ? 'Đang xử lý...' : (authMode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản')}
             </button>
-            <div className="text-center text-[13px] text-brand-text-sub mt-2">
+            <div className="text-center text-[13px] text-brand-text-sub mt-2 flex flex-col gap-1.5">
               {authMode === 'login' ? (
-                <>Chưa có tài khoản? <span onClick={() => setAuthMode('register')} className="text-brand-primary font-medium cursor-pointer hover:underline">Đăng ký ngay</span> (nhận quyền CSKH tự động)</>
+                <>
+                  <div>Chưa có tài khoản? <span onClick={() => setAuthMode('register')} className="text-brand-primary font-medium cursor-pointer hover:underline">Đăng ký ngay</span> (nhận quyền CSKH tự động)</div>
+                  <div><span onClick={handleForgotPassword} className="text-brand-primary font-medium cursor-pointer hover:underline">Quên mật khẩu?</span></div>
+                </>
               ) : (
                 <>Đã có tài khoản? <span onClick={() => setAuthMode('login')} className="text-brand-primary font-medium cursor-pointer hover:underline">Đăng nhập</span></>
               )}

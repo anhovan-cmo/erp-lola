@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency, cn } from '../lib/utils';
-import { seedDatabase } from '../services/firebaseService';
 import Papa from 'papaparse';
 import { 
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -178,21 +177,6 @@ export function Dashboard() {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto pr-4 pb-12">
-      {products.length === 0 && (
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 flex justify-between items-center rounded-r shadow-sm shrink-0">
-          <div>
-            <h3 className="font-semibold text-blue-800">Dữ liệu đang trống</h3>
-            <p className="text-sm text-blue-600">Bạn có thể đồng bộ 100+ sản phẩm và giao dịch mẫu vào cơ sở dữ liệu để bắt đầu ngay.</p>
-          </div>
-          <button 
-            onClick={() => seedDatabase(products, partners, transactions)}
-            className="bg-blue-600 text-white px-4 py-2 rounded font-semibold text-sm hover:bg-blue-700 transition"
-          >
-            Đồng bộ Dữ liệu Mẫu
-          </button>
-        </div>
-      )}
-
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 shrink-0">
         <h1 className="text-[20px] md:text-[24px] font-semibold">Báo Cáo Tổng Hợp</h1>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">

@@ -14,10 +14,12 @@ import {
   Settings,
   RefreshCw,
   LogOut,
-  BookOpen
+  BookOpen,
+  Key
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAppContext } from '../context/AppContext';
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 export function Layout({ children, activeTab, setActiveTab }: { children: ReactNode, activeTab: string, setActiveTab: (t: string) => void }) {
   const { userProfile, hasPermission, refreshData, logout } = useAppContext();
@@ -26,6 +28,7 @@ export function Layout({ children, activeTab, setActiveTab }: { children: ReactN
   const [isPending, startTransitionHook] = useTransition();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newVersionAvailable, setNewVersionAvailable] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const initialVersionRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -138,8 +141,15 @@ export function Layout({ children, activeTab, setActiveTab }: { children: ReactN
               <p className="text-[11px] truncate">{roleText[role]}</p>
             </div>
             <button 
+              onClick={() => setShowChangePassword(true)}
+              className="p-2 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+              title="Đổi mật khẩu"
+            >
+              <Key className="w-5 h-5 shrink-0" />
+            </button>
+            <button 
               onClick={logout}
-              className="ml-2 p-2 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+              className="p-2 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
               title="Đăng xuất"
             >
               <LogOut className="w-5 h-5 shrink-0" />
@@ -150,6 +160,9 @@ export function Layout({ children, activeTab, setActiveTab }: { children: ReactN
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+        {showChangePassword && (
+          <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+        )}
         {newVersionAvailable && (
           <div className="bg-[#0070f4] text-white px-4 py-3 flex items-center justify-between shadow-md z-50 shrink-0">
             <div className="flex items-center gap-3">
