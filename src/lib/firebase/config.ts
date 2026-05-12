@@ -1,12 +1,16 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import firebaseConfig from '../../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
 
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); // MUST use firestoreDatabaseId
+// Use persistent local cache to drastically reduce read quota
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+}, firebaseConfig.firestoreDatabaseId);
+
 export const auth = getAuth(app);
 export const secondaryAuth = getAuth(secondaryApp);
 

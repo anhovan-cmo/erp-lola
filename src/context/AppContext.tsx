@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, signInWithGoogle, logOut } from '../lib/firebase/config';
 import { onAuthStateChanged, User } from 'firebase/auth';
-    import { collection, query, doc, writeBatch, serverTimestamp, setDoc, getDoc, deleteDoc, updateDoc, getDocs } from 'firebase/firestore';
+import { collection, query, doc, writeBatch, serverTimestamp, setDoc, getDoc, deleteDoc, updateDoc, getDocs, onSnapshot } from 'firebase/firestore';
 
 export type Role = 'ADMIN' | 'ACCOUNTANT' | 'CSKH' | 'WAREHOUSE' | 'PENDING';
 export type AppPermission = { view: boolean; create: boolean; edit: boolean; delete: boolean; };
@@ -161,47 +161,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return b.id.localeCompare(a.id);
     };
 
-    const loadData = async () => {
-      try {
-        const [prodsSnap, txSnap, partnersSnap] = await Promise.all([
-          getDocs(collection(db, 'products')),
-          getDocs(collection(db, 'transactions')),
-          getDocs(collection(db, 'partners'))
-        ]);
+    const unsubProducts = onSnapshot(collection(db, 'products'), (snap) => {
+      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)).sort(sortByNewest));
+    }, (err) => console.error("Products sync error", err));
 
-        setProducts(prodsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Product)).sort(sortByNewest));
-        setTransactions(txSnap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction)).sort(sortByNewest));
-        setPartners(partnersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Partner)).sort(sortByNewest));
+    const unsubTx = onSnapshot(collection(db, 'transactions'), (snap) => {
+      setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction)).sort(sortByNewest));
+    }, (err) => console.error("Tx sync error", err));
 
-        if (userProfile?.role === 'ADMIN' || hasPermission('settings', 'view') || hasPermission('products', 'create') || hasPermission('partners', 'create')) {
-           const usersSnap = await getDocs(collection(db, 'users'));
-           setUsersList(usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile)));
-           
-           // Fetch KiotViet settings to put into localStorage so that sync API calls work correctly
-           try {
-             const kiotvietSnap = await getDoc(doc(db, 'settings', 'kiotviet'));
-             if (kiotvietSnap.exists()) {
-               const data = kiotvietSnap.data();
-               if (data.clientId) localStorage.setItem('kiotviet_client_id', data.clientId);
-               if (data.clientSecret) localStorage.setItem('kiotviet_client_secret', data.clientSecret);
-               if (data.retailer) localStorage.setItem('kiotviet_retailer', data.retailer);
-             }
-           } catch (e) {
-             console.log("Could not load KiotViet settings globally", e);
-           }
-        }
-      } catch (err) {
-        console.error("Lỗi khi tải dữ liệu tĩnh do Quota hoặc Mạng:", err);
-      }
+    const unsubPartners = onSnapshot(collection(db, 'partners'), (snap) => {
+      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() } as Partner)).sort(sortByNewest));
+    }, (err) => console.error("Partners sync error", err));
+
+    let unsubUsers = () => {};
+    if (userProfile?.role === 'ADMIN' || hasPermission('settings', 'view') || hasPermission('products', 'create') || hasPermission('partners', 'create')) {
+       unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+         setUsersList(snap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile)));
+       }, (err) => console.error("Users sync error", err));
+       
+       // Fetch KiotViet settings to put into localStorage so that sync API calls work correctly
+       getDoc(doc(db, 'settings', 'kiotviet')).then(kiotvietSnap => {
+         if (kiotvietSnap.exists()) {
+           const data = kiotvietSnap.data();
+           if (data.clientId) localStorage.setItem('kiotviet_client_id', data.clientId);
+           if (data.clientSecret) localStorage.setItem('kiotviet_client_secret', data.clientSecret);
+           if (data.retailer) localStorage.setItem('kiotviet_retailer', data.retailer);
+         }
+       }).catch(e => console.log("Could not load KiotViet settings globally", e));
+    }
+
+    setRefreshDataFunc(() => async () => {
+       // Data is already refreshing in real-time via onSnapshot
+       // But we can trigger a manual fetch if they really want, although not needed.
+       console.log("Data is automatically syncing in real-time via onSnapshot!");
+    });
+
+    return () => {
+      unsubProducts();
+      unsubTx();
+      unsubPartners();
+      unsubUsers();
     };
-
-    loadData();
-    
-    // Lưu hàm loadData vào thẻ global window để các mutation có thể gọi refresh,
-    // Hoặc ta export nó qua AppContext. 
-    // Chúng ta sẽ gán vào reference hoặc tạo một function public ở layer tĩnh bên dưới.
-    setRefreshDataFunc(() => loadData);
-
   }, [user, userProfile?.role]);
 
   const [refreshDataFunc, setRefreshDataFunc] = useState<() => Promise<void>>(() => async () => {});
