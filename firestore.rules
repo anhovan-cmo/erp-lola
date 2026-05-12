@@ -26,7 +26,7 @@ service cloud.firestore {
     }
 
     function isValidProduct(data) {
-      return data.keys().hasOnly(['id', 'barcode', 'name', 'brand', 'price', 'cost', 'stock', 'minStock', 'maxStock', 'weight', 'sellDirectly', 'bonusPoints', 'image', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['id', 'barcode', 'name', 'brand', 'price', 'cost', 'stock', 'minStock', 'maxStock', 'weight', 'sellDirectly', 'bonusPoints', 'description', 'image', 'createdAt', 'updatedAt'])
         && data.id is string && data.id.size() > 0 && data.id.size() <= 128
         && (!('barcode' in data) || data.barcode == null || (data.barcode is string && data.barcode.size() <= 128))
         && data.name is string && data.name.size() > 0 && data.name.size() <= 500
@@ -39,6 +39,7 @@ service cloud.firestore {
         && (!('weight' in data) || data.weight == null || (data.weight is number))
         && (!('sellDirectly' in data) || data.sellDirectly == null || (data.sellDirectly is bool))
         && (!('bonusPoints' in data) || data.bonusPoints == null || (data.bonusPoints is bool))
+        && (!('description' in data) || data.description == null || (data.description is string && data.description.size() <= 2000))
         && (!('image' in data) || data.image == null || (data.image is string && data.image.size() <= 1048576));
     }
 
@@ -92,7 +93,7 @@ service cloud.firestore {
         && isValidId(productId) 
         && isValidProduct(incoming()) 
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['barcode', 'name', 'brand', 'price', 'cost', 'stock', 'minStock', 'maxStock', 'weight', 'sellDirectly', 'bonusPoints', 'image', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['barcode', 'name', 'brand', 'price', 'cost', 'stock', 'minStock', 'maxStock', 'weight', 'sellDirectly', 'bonusPoints', 'description', 'image', 'updatedAt'])
           || isAdmin()
         )
         && (incoming().updatedAt == request.time || incoming().updatedAt is number || isAdmin())
@@ -133,8 +134,16 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get: if isVerified() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
+      allow get: if isVerified() && (request.auth.uid == userId || isAdmin() || (
+        'permissions' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+        'users' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.users.view == true
+      ));
+      allow list: if isVerified() && (isAdmin() || (
+        'permissions' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+        'users' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.users.view == true
+      ));
       allow create: if isVerified() && request.auth.uid == userId && isValidUser(incoming()) && incoming().createdAt == request.time;
       allow update: if isVerified() && (
         (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt'])) ||
@@ -144,7 +153,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     match /activity_logs/{logId} {
-      allow read: if isAdmin();
+      allow read: if isVerified() && (isAdmin() || (
+        'permissions' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+        'logs' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.logs.view == true
+      ));
       allow create: if isVerified() && isValidId(logId) && isValidActivityLog(incoming()) && incoming().createdAt == request.time;
       allow update, delete: if false; // immutable
     }

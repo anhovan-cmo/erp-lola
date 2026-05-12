@@ -226,6 +226,7 @@ export function ProductList({ isActive }: { isActive?: boolean }) {
 
     if (isAutoSync) {
        // Also sync immediately when isActive becomes true and auto sync is on
+       // if we just mounted, the previous useEffect handles it, but this is fine too.
        if (isActive) {
            runSync();
        }
@@ -290,11 +291,15 @@ export function ProductList({ isActive }: { isActive?: boolean }) {
     } else if (sortStockDir === 'desc') {
       result.sort((a,b) => b.stock - a.stock);
     } else {
-      // Default: Sort by newest updated
+      // Default: Sort by newest imported (createdAt)
       result.sort((a, b) => {
-         const aTime = a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (typeof a.updatedAt === 'number' ? a.updatedAt : 0);
-         const bTime = b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (typeof b.updatedAt === 'number' ? b.updatedAt : 0);
-         return bTime - aTime;
+         const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : (typeof a.createdAt === 'number' ? a.createdAt : 0);
+         const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : (typeof b.createdAt === 'number' ? b.createdAt : 0);
+         if (bTime !== aTime) return bTime - aTime;
+         
+         const aUp = a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (typeof a.updatedAt === 'number' ? a.updatedAt : 0);
+         const bUp = b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (typeof b.updatedAt === 'number' ? b.updatedAt : 0);
+         return bUp - aUp;
       });
     }
 

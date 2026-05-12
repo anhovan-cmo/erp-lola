@@ -1,4 +1,4 @@
-import { ReactNode, useState, startTransition } from 'react';
+import { ReactNode, useState, startTransition, useTransition } from 'react';
 import { 
   BarChart3, 
   PackageSearch,
@@ -11,15 +11,29 @@ import {
   Menu,
   X,
   History,
-  Settings
+  Settings,
+  RefreshCw,
+  LogOut,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAppContext } from '../context/AppContext';
 
 export function Layout({ children, activeTab, setActiveTab }: { children: ReactNode, activeTab: string, setActiveTab: (t: string) => void }) {
-  const { userProfile, hasPermission } = useAppContext();
+  const { userProfile, hasPermission, refreshData, logout } = useAppContext();
   const role = userProfile?.role || 'PENDING';
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isPending, startTransitionHook] = useTransition();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const allTabs = [
     { id: 'dashboard', label: 'Tổng Quan Dashboard', icon: BarChart3 },
@@ -32,6 +46,7 @@ export function Layout({ children, activeTab, setActiveTab }: { children: ReactN
     { id: 'users', label: 'Quản Lý Nhân Viên', icon: Users },
     { id: 'logs', label: 'Nhật Ký Hoạt Động', icon: History },
     { id: 'settings', label: 'Cài Đặt', icon: Settings },
+    { id: 'guide', label: 'Hướng Dẫn Sử Dụng', icon: BookOpen },
   ];
 
   const visibleTabs = allTabs.filter(t => hasPermission(t.id, 'view'));
@@ -95,10 +110,17 @@ export function Layout({ children, activeTab, setActiveTab }: { children: ReactN
         <div className="p-4 border-t border-white/10 shrink-0">
           <div className="flex items-center text-[14px] text-white/80">
             <UserCircle className="w-8 h-8 mr-3 text-white/60 shrink-0" />
-            <div className="text-left w-full overflow-hidden">
+            <div className="text-left w-full overflow-hidden flex-1">
               <p className="font-semibold text-white text-[13px] truncate">{userProfile?.name || 'User'}</p>
               <p className="text-[11px] truncate">{roleText[role]}</p>
             </div>
+            <button 
+              onClick={logout}
+              className="ml-2 p-2 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+              title="Đăng xuất"
+            >
+              <LogOut className="w-5 h-5 shrink-0" />
+            </button>
           </div>
         </div>
       </aside>
@@ -116,10 +138,24 @@ export function Layout({ children, activeTab, setActiveTab }: { children: ReactN
           <div className="font-semibold text-[16px] truncate">{currentTabLabel}</div>
         </header>
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto w-full p-4 lg:p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto w-full p-4 lg:p-6 position-relative">
           {children}
         </main>
       </div>
+
+      {/* Floating Refresh Button */}
+      <button
+        onClick={handleRefresh}
+        disabled={isRefreshing}
+        className={cn(
+          "fixed bottom-6 right-6 p-4 rounded-full shadow-lg text-white font-medium flex items-center justify-center transition focus:outline-none focus:ring-2 focus:ring-offset-2 z-50",
+          isRefreshing ? "bg-slate-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
+        )}
+        title="Làm mới dữ liệu tĩnh"
+      >
+        <RefreshCw size={24} className={cn(isRefreshing && "animate-spin")} />
+      </button>
+
     </div>
   );
 }

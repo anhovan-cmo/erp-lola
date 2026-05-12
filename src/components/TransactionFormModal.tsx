@@ -3,6 +3,7 @@ import { X, Search, Plus, Minus, Trash2 } from 'lucide-react';
 import { useAppContext, Transaction } from '../context/AppContext';
 import { formatCurrency } from '../lib/utils';
 import { ProductFormModal } from './ProductFormModal';
+import { PartnerFormModal } from './PartnerFormModal';
 
 interface TransactionFormModalProps {
   type: 'IMPORT' | 'EXPORT';
@@ -19,6 +20,7 @@ export function TransactionFormModal({ type, onClose, initialTransaction }: Tran
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isAddPartnerOpen, setIsAddPartnerOpen] = useState(false);
   const [partnerSearchTerm, setPartnerSearchTerm] = useState(
     initialTransaction?.partnerId ? (partners.find(p => p.id === initialTransaction.partnerId)?.name || initialTransaction.partnerName || '') : ''
   );
@@ -270,7 +272,15 @@ export function TransactionFormModal({ type, onClose, initialTransaction }: Tran
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Khách hàng / Nhà CC</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-semibold text-gray-700">Khách hàng / Nhà CC</label>
+                <button 
+                  onClick={() => setIsAddPartnerOpen(true)}
+                  className="text-xs text-blue-600 hover:underline flex items-center"
+                >
+                  <Plus size={12} className="mr-0.5" /> Tạo đối tác mới
+                </button>
+              </div>
               <div className="relative mb-3">
                 <Search size={16} className="absolute left-3 top-3 text-gray-400" />
                 <input 
@@ -460,6 +470,19 @@ export function TransactionFormModal({ type, onClose, initialTransaction }: Tran
           onSuccess={(newId) => {
             setSearchTerm(newId);
           }}
+        />
+      )}
+
+      {isAddPartnerOpen && (
+        <PartnerFormModal 
+          partner={null} 
+          onClose={() => setIsAddPartnerOpen(false)} 
+          onSuccess={(partnerId, partnerName, partnerPhone) => {
+             setSelectedPartnerId(partnerId);
+             setPartnerSearchTerm(`${partnerName} - ${partnerPhone || ''}`);
+             setIsAddPartnerOpen(false);
+          }}
+          initialType={type === 'IMPORT' ? 'SUPPLIER' : 'CUSTOMER'}
         />
       )}
     </div>

@@ -128,17 +128,9 @@ app.get("/api/kiotviet/sync-partners", async (req, res) => {
         
         if (responseData && responseData.isWafBlocked) {
           isMockTriggered = true;
-          // Generate some mock data for partners
-          if (endpoint === 'customers') {
-             allData = [
-                { id: '1', code: 'KH001', name: 'Nguyễn Văn Mock', contactNumber: '0901234567', modifiedDate: new Date().toISOString() }
-             ];
-          } else if (endpoint === 'suppliers') {
-             allData = [
-                { id: '2', code: 'NCC001', name: 'Công ty TNHH Mock', contactNumber: '0901112222', modifiedDate: new Date().toISOString() }
-             ];
-          }
-          break;
+          // Return empty array instead of dummy data to prevent ghost data from recreating itself
+          allData = [];
+           break;
         }
         
         if (responseData && responseData.isMock) {
@@ -201,22 +193,8 @@ app.get("/api/kiotviet/sync-products", async (req, res) => {
       
       if (responseData && responseData.isWafBlocked) {
           isMockTriggered = true;
-          allData = [
-             { 
-               id: '1001', code: 'SP001', name: 'Sản phẩm Demo WAF 1', 
-               fullName: 'Sản phẩm Demo WAF 1', categoryName: 'Danh mục Demo',
-               basePrice: 100000,
-               modifiedDate: new Date().toISOString(),
-               inventories: [{ onHand: 10 }]
-             },
-             { 
-               id: '1002', code: 'SP002', name: 'Sản phẩm Demo WAF 2', 
-               fullName: 'Sản phẩm Demo WAF 2', categoryName: 'Danh mục Demo',
-               basePrice: 200000,
-               modifiedDate: new Date().toISOString(),
-               inventories: [{ onHand: 5 }]
-             }
-          ];
+          // Return empty array instead of dummy data to prevent ghost data from recreating itself
+          allData = [];
           hasMore = false;
           break;
       }

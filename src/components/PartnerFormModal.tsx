@@ -7,9 +7,11 @@ import { db } from '../lib/firebase/config';
 interface PartnerFormModalProps {
   partner: Partner | null;
   onClose: () => void;
+  onSuccess?: (partnerId: string, partnerName: string, partnerPhone: string) => void;
+  initialType?: 'CUSTOMER' | 'SUPPLIER';
 }
 
-export function PartnerFormModal({ partner, onClose }: PartnerFormModalProps) {
+export function PartnerFormModal({ partner, onClose, onSuccess, initialType = 'CUSTOMER' }: PartnerFormModalProps) {
   const { addPartner, updatePartner, userProfile } = useAppContext();
   
   const [name, setName] = useState('');
@@ -17,7 +19,7 @@ export function PartnerFormModal({ partner, onClose }: PartnerFormModalProps) {
   const [address, setAddress] = useState('');
   const [cccd, setCccd] = useState('');
   const [mst, setMst] = useState('');
-  const [type, setType] = useState<'CUSTOMER' | 'SUPPLIER'>('CUSTOMER');
+  const [type, setType] = useState<'CUSTOMER' | 'SUPPLIER'>(initialType);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -47,9 +49,10 @@ export function PartnerFormModal({ partner, onClose }: PartnerFormModalProps) {
           cccd: cccd.trim(),
           mst: mst.trim(),
         });
+        if (onSuccess) onSuccess(partner.id, name.trim(), phone.trim());
       } else {
         // Create mode
-        await addPartner({
+        const newId = await addPartner({
           name: name.trim(),
           phone: phone.trim(),
           address: address.trim(),
@@ -59,6 +62,7 @@ export function PartnerFormModal({ partner, onClose }: PartnerFormModalProps) {
           totalReceivable: 0,
           totalPayable: 0,
         });
+        if (onSuccess) onSuccess(newId, name.trim(), phone.trim());
       }
       onClose();
     } catch (err: any) {

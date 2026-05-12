@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db, signInWithGoogle } from '../lib/firebase/config';
+import { auth, db, signInWithGoogle, logOut } from '../lib/firebase/config';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, onSnapshot, query, doc, writeBatch, serverTimestamp, setDoc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+    import { collection, query, doc, writeBatch, serverTimestamp, setDoc, getDoc, deleteDoc, updateDoc, getDocs } from 'firebase/firestore';
 
 export type Role = 'ADMIN' | 'ACCOUNTANT' | 'CSKH' | 'WAREHOUSE' | 'PENDING';
 export type AppPermission = { view: boolean; create: boolean; edit: boolean; delete: boolean; };
@@ -70,6 +70,7 @@ interface AppState {
   partners: Partner[];
   usersList: UserProfile[];
   login: () => Promise<void>;
+  logout: () => Promise<void>;
   updateUserPermissions: (userId: string, permissions: UserPermissions) => Promise<void>;
   hasPermission: (module: string, action: keyof AppPermission) => boolean;
   addTransaction: (tx: any, prodChanges: any[], partnerId: string, isDebt: boolean, debtAmount?: number) => Promise<void>;
@@ -77,13 +78,14 @@ interface AppState {
   updatePartnerDebt: (partnerId: string, amountToReduce: number, debtType: 'Receivable' | 'Payable') => Promise<void>;
   updateUserRole: (userId: string, newRole: Role) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
-  addPartner: (partner: Partial<Partner>) => Promise<void>;
+  addPartner: (partner: Partial<Partner>) => Promise<string>;
   updatePartner: (partnerId: string, data: Partial<Partner>) => Promise<void>;
   deletePartner: (partnerId: string) => Promise<void>;
   updateTransaction: (transactionId: string, data: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   logActivity: (action: string, module: string, details: string) => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -159,33 +161,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return b.id.localeCompare(a.id);
     };
 
-    const unsubProducts = onSnapshot(collection(db, 'products'), (snap) => {
-      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)).sort(sortByNewest));
-    });
-    const unsubTx = onSnapshot(collection(db, 'transactions'), (snap) => {
-      setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction)).sort(sortByNewest));
-    });
-    const unsubPartners = onSnapshot(collection(db, 'partners'), (snap) => {
-      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() } as Partner)).sort(sortByNewest));
-    });
+    const loadData = async () => {
+      try {
+        const [prodsSnap, txSnap, partnersSnap] = await Promise.all([
+          getDocs(collection(db, 'products')),
+          getDocs(collection(db, 'transactions')),
+          getDocs(collection(db, 'partners'))
+        ]);
 
-    let unsubUsers = () => {};
-    if (userProfile?.role === 'ADMIN') {
-      unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
-        setUsersList(snap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile)));
-      });
-    }
+        setProducts(prodsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Product)).sort(sortByNewest));
+        setTransactions(txSnap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction)).sort(sortByNewest));
+        setPartners(partnersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Partner)).sort(sortByNewest));
 
-    return () => {
-      unsubProducts();
-      unsubTx();
-      unsubPartners();
-      unsubUsers();
+        if (userProfile?.role === 'ADMIN') {
+          const usersSnap = await getDocs(collection(db, 'users'));
+          setUsersList(usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile)));
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải dữ liệu tĩnh do Quota hoặc Mạng:", err);
+      }
     };
+
+    loadData();
+    
+    // Lưu hàm loadData vào thẻ global window để các mutation có thể gọi refresh,
+    // Hoặc ta export nó qua AppContext. 
+    // Chúng ta sẽ gán vào reference hoặc tạo một function public ở layer tĩnh bên dưới.
+    setRefreshDataFunc(() => loadData);
+
   }, [user, userProfile?.role]);
+
+  const [refreshDataFunc, setRefreshDataFunc] = useState<() => Promise<void>>(() => async () => {});
+
+  const refreshData = async () => {
+    await refreshDataFunc();
+  };
 
   const login = async () => {
     await signInWithGoogle();
+  };
+
+  const logout = async () => {
+    await logOut();
   };
 
   const logActivity = async (action: string, module: string, details: string) => {
@@ -212,6 +229,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const defaultPerms = DEFAULT_PERMISSIONS[newRole] || DEFAULT_PERMISSIONS['PENDING'];
     await setDoc(uRef, { role: newRole, permissions: defaultPerms, updatedAt: serverTimestamp() }, { merge: true });
     logActivity('PHÂN QUYỀN', 'NHÂN VIÊN', `Mã NV: ${userId} -> Quyền: ${newRole}`);
+    await refreshData();
   };
 
   const updateUserPermissions = async (userId: string, permissions: UserPermissions) => {
@@ -219,11 +237,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const uRef = doc(db, 'users', userId);
     await setDoc(uRef, { permissions, updatedAt: serverTimestamp() }, { merge: true });
     logActivity('PHÂN QUYỀN', 'NHÂN VIÊN', `Mã NV: ${userId} -> Cập nhật quyền chi tiết`);
+    await refreshData();
   };
 
   const hasPermission = (module: string, action: keyof AppPermission): boolean => {
-    if (!userProfile) return false;
+    if (!userProfile || userProfile.role === 'PENDING') return false;
     if (userProfile.role === 'ADMIN') return true;
+    if (module === 'guide') return true;
     
     let checkModule = module;
     if (userProfile.permissions) {
@@ -258,6 +278,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await deleteDoc(doc(db, 'products', productId));
       logActivity('XÓA', 'SẢN PHẨM', `Xóa sản phẩm ID: ${productId}`);
+      await refreshData();
     } catch (e) {
       console.error(e);
       throw e;
@@ -328,6 +349,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     await batch.commit();
     logActivity('TẠO MỚI', 'GIAO DỊCH', `Tạo phiếu ${txObj.type === 'IMPORT' ? 'Nhập kho' : 'Xuất kho'} trị giá ${txObj.totalValue}`);
+    await refreshData();
   };
 
   const editFullTransaction = async (
@@ -352,8 +374,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const now = serverTimestamp();
     
     // Create maps for fast lookups
-    const productMap = new Map(products.map(p => [p.id, p]));
-    const partnerMap = new Map(partners.map(p => [p.id, p]));
+    const productMap = new Map<string, Product>(products.map(p => [p.id, p]));
+    const partnerMap = new Map<string, Partner>(partners.map(p => [p.id, p]));
 
     // 1. Revert original stock
     const stockChanges = new Map<string, number>();
@@ -430,6 +452,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     await batch.commit();
     logActivity('CẬP NHẬT', 'GIAO DỊCH', `Sửa thông tin phiếu ${originalTx.id}`);
+    await refreshData();
   };
 
   const updatePartnerDebt = async (partnerId: string, amountToReduce: number, debtType: 'Receivable' | 'Payable') => {
@@ -459,6 +482,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     batch.update(ptRef, pUpdate);
     await batch.commit();
     logActivity('CẬP NHẬT', 'CÔNG NỢ', `Thanh toán giảm nợ ${debtType === 'Receivable' ? 'phải thu' : 'phải trả'} số tiền ${amountToReduce}`);
+    await refreshData();
   };
 
   const addPartner = async (partnerData: Partial<Partner>) => {
@@ -471,6 +495,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updatedAt: serverTimestamp()
     });
     logActivity('TẠO MỚI', 'KHÁCH/NCC', `Tên: ${partnerData.name}`);
+    await refreshData();
+    return ptRef.id;
   };
 
   const updatePartner = async (partnerId: string, partnerData: Partial<Partner>) => {
@@ -478,6 +504,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const ptRef = doc(db, 'partners', partnerId);
     await setDoc(ptRef, { ...partnerData, updatedAt: serverTimestamp() }, { merge: true });
     logActivity('CẬP NHẬT', 'KHÁCH/NCC', `Cập nhật đối tác ID: ${partnerId}`);
+    await refreshData();
   };
 
   const deletePartner = async (partnerId: string) => {
@@ -485,6 +512,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const ptRef = doc(db, 'partners', partnerId);
     await deleteDoc(ptRef);
     logActivity('XÓA', 'KHÁCH/NCC', `Xóa đối tác ID: ${partnerId}`);
+    await refreshData();
   };
 
   const updateTransaction = async (transactionId: string, data: Partial<Transaction>) => {
@@ -505,7 +533,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...data,
         updatedAt: serverTimestamp()
       });
-      logActivity('CẬP NHẬT', 'GIAO DỊCH', `Cập nhật thông tin giao dịch ID: ${transactionId}`);
+      logActivity('CẬP NHẬT', 'GIAO DỊCH', `Cập nhật thông diễn giao dịch ID: ${transactionId}`);
+      await refreshData();
     } catch (e) {
       console.error(e);
       throw e;
@@ -528,6 +557,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     await deleteDoc(txRef);
     logActivity('XÓA', 'GIAO DỊCH', `Xóa giao dịch ID: ${transactionId}`);
+    await refreshData();
   };
 
   const deleteUser = async (userId: string) => {
@@ -536,14 +566,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const userRef = doc(db, 'users', userId);
     await deleteDoc(userRef);
     logActivity('XÓA', 'NHÂN VIÊN', `Xóa nhân viên ID: ${userId}`);
+    await refreshData();
   };
 
   return (
     <AppContext.Provider value={{ 
       user, userProfile, loading, products, transactions, partners, usersList, 
-      login, addTransaction, editFullTransaction, updateTransaction, updatePartnerDebt, updateUserRole, updateUserPermissions, hasPermission, deleteProduct,
+      login, logout, addTransaction, editFullTransaction, updateTransaction, updatePartnerDebt, updateUserRole, updateUserPermissions, hasPermission, deleteProduct,
       addPartner, updatePartner, deletePartner, deleteTransaction, deleteUser,
-      logActivity
+      logActivity, refreshData
     }}>
       {children}
     </AppContext.Provider>

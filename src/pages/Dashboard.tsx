@@ -239,8 +239,8 @@ export function Dashboard() {
           <CardHeader className="border-b border-brand-border p-4 bg-[#f8f9fa]">
             <CardTitle className="text-[16px] text-brand-text-sub">Doanh thu & Giá vốn</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 p-4 pb-0 overflow-hidden">
-            <ResponsiveContainer width="100%" height="100%">
+          <CardContent className="flex-1 p-4 pb-0 overflow-hidden min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               {salesData.length > 0 ? (
                 <BarChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dfe1e6" />
@@ -266,8 +266,8 @@ export function Dashboard() {
           <CardHeader className="border-b border-brand-border p-4 bg-[#f8f9fa]">
             <CardTitle className="text-[16px] text-brand-text-sub">Lợi nhuận theo sản phẩm</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 p-4 pb-0 overflow-hidden">
-            <ResponsiveContainer width="100%" height="100%">
+          <CardContent className="flex-1 p-4 pb-0 overflow-hidden min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               {profitData.data.length > 0 ? (
                 <LineChart data={profitData.data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dfe1e6" />
@@ -296,7 +296,7 @@ export function Dashboard() {
             <CardTitle className="text-[16px] text-brand-text-sub">Phân bổ thương hiệu (Tồn kho)</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 p-4 shrink-0 overflow-hidden min-h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={brandData}
@@ -323,7 +323,7 @@ export function Dashboard() {
             <CardTitle className="text-[16px] text-brand-text-sub">Tỉ trọng Giá trị Giao dịch</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 p-4 shrink-0 overflow-hidden min-h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               {txTypeData.length > 0 ? (
                 <PieChart>
                   <Pie
@@ -357,7 +357,7 @@ export function Dashboard() {
             <CardTitle className="text-[16px] text-brand-text-sub">Lợi nhuận theo Đối tác (Top 10)</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 p-4 shrink-0 overflow-hidden min-h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               {profitByPartnerData.length > 0 ? (
                 <BarChart data={profitByPartnerData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#dfe1e6" />

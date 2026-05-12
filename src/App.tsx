@@ -8,6 +8,7 @@ import { PartnersPage } from './pages/PartnersPage';
 import { UsersPage } from './pages/Users';
 import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { GuidePage } from './pages/GuidePage';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { LogIn, UserPlus } from 'lucide-react';
 import { auth } from './lib/firebase/config';
@@ -153,6 +154,7 @@ function AppContent() {
       <div className={activeTab === 'users' ? 'h-full flex flex-col' : 'hidden'}><UsersPage /></div>
       <div className={activeTab === 'logs' ? 'h-full flex flex-col' : 'hidden'}><ActivityLogsPage /></div>
       <div className={activeTab === 'settings' ? 'h-full flex flex-col' : 'hidden'}><SettingsPage /></div>
+      <div className={activeTab === 'guide' ? 'h-full flex flex-col' : 'hidden'}><GuidePage /></div>
     </Layout>
   );
 }
