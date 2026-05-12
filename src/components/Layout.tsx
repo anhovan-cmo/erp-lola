@@ -1,4 +1,4 @@
-import { ReactNode, useState, startTransition, useTransition } from 'react';
+import { ReactNode, useState, startTransition, useTransition, useEffect, useRef } from 'react';
 import { 
   BarChart3, 
   PackageSearch,
@@ -25,6 +25,29 @@ export function Layout({ children, activeTab, setActiveTab }: { children: ReactN
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isPending, startTransitionHook] = useTransition();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [newVersionAvailable, setNewVersionAvailable] = useState(false);
+  const initialVersionRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const res = await fetch('/api/app-version', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (initialVersionRef.current === null) {
+            initialVersionRef.current = data.version;
+          } else if (data.version !== initialVersionRef.current) {
+            setNewVersionAvailable(true);
+          }
+        }
+      } catch (err) {
+        // ignore errors
+      }
+    };
+    checkVersion();
+    const interval = setInterval(checkVersion, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -127,6 +150,20 @@ export function Layout({ children, activeTab, setActiveTab }: { children: ReactN
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+        {newVersionAvailable && (
+          <div className="bg-[#0070f4] text-white px-4 py-3 flex items-center justify-between shadow-md z-50 shrink-0">
+            <div className="flex items-center gap-3">
+              <RefreshCw size={20} className="animate-spin shrink-0" />
+              <span className="text-sm font-medium">Phiên bản hệ thống mới đã được cập nhật! Vui lòng tải lại trang để trải nghiệm các tính năng mới nhất.</span>
+            </div>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="bg-white text-[#0070f4] px-4 py-1.5 rounded-[3px] text-sm font-semibold hover:bg-gray-100 transition whitespace-nowrap ml-4"
+            >
+              Tải lại (F5)
+            </button>
+          </div>
+        )}
         {/* Mobile Header */}
         <header className="lg:hidden flex items-center gap-3 p-4 bg-white border-b border-brand-border shrink-0">
           <button 

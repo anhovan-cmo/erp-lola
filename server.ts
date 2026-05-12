@@ -7,6 +7,12 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // App version check (start time)
+  const START_TIME = Date.now();
+  app.get("/api/app-version", (req, res) => {
+    res.json({ version: START_TIME });
+  });
+
   // Mount the API router
   app.use(apiApp);
 
