@@ -217,7 +217,7 @@ export function ProductFormModal({ onClose, onSuccess, initialProduct }: Product
                   <div className="grid grid-cols-2 gap-6">
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="block text-[13px] text-gray-600">Nhóm hàng / Thương hiệu</label>
+                        <label className="block text-[13px] text-gray-600 font-medium">Nhóm hàng / Thương hiệu <span className="text-red-500">*</span></label>
                         <button 
                           type="button" 
                           onClick={() => {
@@ -229,30 +229,36 @@ export function ProductFormModal({ onClose, onSuccess, initialProduct }: Product
                           className="text-[#0070f4] text-[13px] hover:underline"
                         >Tạo mới</button>
                       </div>
-                      <select 
-                        name="category" value={existingCategories.includes(formData.category) ? formData.category : ''} 
-                        onChange={(e) => {
-                          if (e.target.value !== '') {
-                            setFormData(prev => ({ ...prev, category: e.target.value }));
-                          }
-                        }}
-                        className="w-full border border-gray-300 rounded-[3px] px-3 py-1.5 text-[14px] focus:outline-none focus:border-[#0070f4] bg-white text-gray-500 mb-2"
-                      >
-                        <option value="">Chọn nhóm hàng có sẵn...</option>
-                        {existingCategories.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
-                      {/* Show input if category is not in the list, allowing free text or displaying the newly prompted category */}
-                      <input 
-                        type="text" 
-                        name="category" 
-                        value={formData.category} 
-                        onChange={handleChange}
-                        placeholder="Hoặc nhập nhóm hàng / thương hiệu..."
-                        className="w-full border border-gray-300 rounded-[3px] px-3 py-1.5 text-[14px] focus:outline-none focus:border-[#0070f4]"
-                        required
-                      />
+                      <p className="text-[12px] text-gray-500 mb-2 leading-relaxed">
+                        Phân loại sản phẩm. Thể hiện nhóm hoặc thương hiệu của sản phẩm.<br/>
+                        Bạn có thể chọn từ danh sách đã có hoặc tự nhập/tạo mới bên dưới.
+                      </p>
+                      
+                      <div className="space-y-2">
+                        <select 
+                          name="category" value={existingCategories.includes(formData.category) ? formData.category : ''} 
+                          onChange={(e) => {
+                            if (e.target.value !== '') {
+                              setFormData(prev => ({ ...prev, category: e.target.value }));
+                            }
+                          }}
+                          className="w-full border border-gray-300 rounded-[3px] px-3 py-1.5 text-[14px] focus:outline-none focus:border-[#0070f4] bg-white text-gray-700"
+                        >
+                          <option value="">-- Chọn nhóm hàng có sẵn hoặc tự nhập --</option>
+                          {existingCategories.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                        <input 
+                          type="text" 
+                          name="category" 
+                          value={formData.category} 
+                          onChange={handleChange}
+                          placeholder="Hoặc nhập tên nhóm hàng / thương hiệu..."
+                          className="w-full border border-gray-300 rounded-[3px] px-3 py-1.5 text-[14px] focus:outline-none focus:border-[#0070f4]"
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

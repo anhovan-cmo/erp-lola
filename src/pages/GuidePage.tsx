@@ -4,7 +4,7 @@ import { BookOpen, User, Users, ShieldAlert, BarChart3, PackageSearch, ArrowUpRi
 import { useAppContext } from '../context/AppContext';
 
 export function GuidePage() {
-  const { userProfile } = useAppContext();
+  const { userProfile, hasPermission } = useAppContext();
   const role = userProfile?.role || 'PENDING';
 
   return (
@@ -22,35 +22,38 @@ export function GuidePage() {
             <CardHeader className="bg-[#f8f9fa] border-b border-brand-border pb-4">
               <CardTitle className="text-[16px] text-brand-text flex items-center gap-2">
                 <BookOpen size={18} className="text-brand-primary" /> 
-                Chức năng chung
+                Chức năng chung (Hiển thị theo quyền của bạn)
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-brand-border">
                 
+                {hasPermission('dashboard', 'view') && (
                 <div className="p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start gap-3">
                     <div className="bg-blue-100 p-2 rounded-full mt-0.5"><BarChart3 size={16} className="text-blue-600" /></div>
                     <div>
                       <h4 className="font-semibold text-brand-text text-[14px]">Tổng Quan Dashboard</h4>
                       <p className="text-sm text-brand-text-sub mt-1">Cung cấp báo cáo chung về tài chính, công nợ, số lượng tồn kho. Các biểu đồ lợi nhuận theo kỳ, doanh thu & giá vốn. Thông tin này giúp bạn nắm bắt nhanh tình hình công ty.</p>
-                      <div className="mt-2 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded inline-block">Bộ phận: Admin, Kế Toán</div>
                     </div>
                   </div>
                 </div>
+                )}
 
+                {hasPermission('products', 'view') && (
                 <div className="p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start gap-3">
                     <div className="bg-indigo-100 p-2 rounded-full mt-0.5"><PackageSearch size={16} className="text-indigo-600" /></div>
                     <div>
                       <h4 className="font-semibold text-brand-text text-[14px]">Quản Lý Tồn Kho & Sản Phẩm</h4>
                       <p className="text-sm text-brand-text-sub mt-1">Hiển thị toàn bộ danh mục sản phẩm, tồn kho hiện tại. Bạn có thể thêm, sửa, xoá sản phẩm (nếu có quyền).</p>
-                      <p className="text-sm text-brand-text-sub mt-1"><span className="font-medium text-brand-primary">Đồng bộ KiotViet:</span> Ở tab Tồn Kho, có nút <strong>"Đồng bộ KiotViet"</strong>. Nhấn vào để tải dữ liệu danh mục hàng hoá mới nhất từ KiotViet về hệ thống nội bộ. Đồng bộ chạy ngầm khi mới vào trang.</p>
-                      <div className="mt-2 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded inline-block">Bộ phận: Kho, Kế Toán, CSKH, Admin</div>
+                      {hasPermission('products', 'create') && <p className="text-sm text-brand-text-sub mt-1"><span className="font-medium text-brand-primary">Đồng bộ KiotViet:</span> Ở tab Tồn Kho, có nút <strong>"Đồng bộ KiotViet"</strong>. Nhấn vào để tải dữ liệu danh mục hàng hoá mới nhất từ KiotViet về hệ thống nội bộ.</p>}
                     </div>
                   </div>
                 </div>
+                )}
 
+                {hasPermission('imports', 'view') && (
                 <div className="p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start gap-3">
                     <div className="bg-green-100 p-2 rounded-full mt-0.5"><ArrowDownRight size={16} className="text-green-600" /></div>
@@ -58,46 +61,51 @@ export function GuidePage() {
                       <h4 className="font-semibold text-brand-text text-[14px]">Quản Lý Nhập Kho</h4>
                       <p className="text-sm text-brand-text-sub mt-1">Tạo phiếu nhập từ nhà cung cấp (NCC). Phiếu nhập sẽ cộng tồn kho, và có thể ghi nhận Công nợ (Phải trả) đối với NCC nếu mua chịu.</p>
                       <ul className="list-disc pl-5 mt-1 text-sm text-brand-text-sub space-y-1">
-                        <li><strong>Kho:</strong> Tạo phiếu, ghi nhận sản phẩm và số lượng nhập.</li>
-                        <li><strong>Kế Toán:</strong> Theo dõi giá trị đơn nhập, quản lý công nợ.</li>
+                        {hasPermission('imports', 'create') && <li><strong>Quản lý kho:</strong> Tạo phiếu, ghi nhận sản phẩm và số lượng nhập.</li>}
+                        {hasPermission('payables', 'view') && <li><strong>Kế Toán:</strong> Theo dõi giá trị đơn nhập, quản lý công nợ NCC.</li>}
                       </ul>
                     </div>
                   </div>
                 </div>
+                )}
 
+                {hasPermission('exports', 'view') && (
                 <div className="p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start gap-3">
                     <div className="bg-orange-100 p-2 rounded-full mt-0.5"><ArrowUpRight size={16} className="text-orange-600" /></div>
                     <div>
                       <h4 className="font-semibold text-brand-text text-[14px]">Quản Lý Xuất Kho</h4>
                       <p className="text-sm text-brand-text-sub mt-1">Tạo phiếu xuất bán hàng cho khách hàng. Trừ tồn kho và ghi nhận Công nợ (Phải thu) đối với Khách hàng.</p>
-                      <div className="mt-2 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded inline-block">Bộ phận: Kho, Kế Toán, CSKH</div>
                     </div>
                   </div>
                 </div>
+                )}
 
+                {(hasPermission('receivables', 'view') || hasPermission('payables', 'view')) && (
                 <div className="p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start gap-3">
                     <div className="bg-purple-100 p-2 rounded-full mt-0.5"><CreditCard size={16} className="text-purple-600" /></div>
                     <div>
                       <h4 className="font-semibold text-brand-text text-[14px]">Công Nợ & Đối Tác</h4>
                       <p className="text-sm text-brand-text-sub mt-1">Quản lý Khách Hàng và Nhà Cung Cấp. Theo dõi dư nợ Phải Thu (tiền khách nợ mình) và Phải Trả (tiền mình nợ NCC).</p>
-                      <p className="text-sm text-brand-text-sub mt-1">Cung cấp nút <span className="font-medium">"Thanh toán / Thu Nợ"</span> để giảm trừ số tiền nợ. Lịch sử thanh toán sẽ được lưu trữ qua các thay đổi số dư.</p>
-                      <div className="mt-2 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded inline-block">Bộ phận: Kế Toán, CSKH (View)</div>
+                      {hasPermission('receivables', 'create') && <p className="text-sm text-brand-text-sub mt-1">Cung cấp chức năng thanh toán để giảm trừ số dư nợ.</p>}
                     </div>
                   </div>
                 </div>
+                )}
 
+                {hasPermission('settings', 'view') && (
                 <div className="p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start gap-3">
                     <div className="bg-slate-100 p-2 rounded-full mt-0.5"><Users size={16} className="text-slate-600" /></div>
                     <div>
                       <h4 className="font-semibold text-brand-text text-[14px]">Quản Lý Chức Năng Cài Đặt & Logs</h4>
-                      <p className="text-sm text-brand-text-sub mt-1">Admin có quyền cấp tài khoản, phân quyền chức năng chi tiết cho từng luồng (view/create/edit/delete) cho từng người dùng, cũng như kiểm tra trạng thái token KiotViet từ Cài Đặt.</p>
+                      <p className="text-sm text-brand-text-sub mt-1">Cấp tài khoản, phân quyền chức năng chi tiết cho từng luồng (view/create/edit/delete) cho từng người dùng, cũng như kiểm tra trạng thái token KiotViet từ Cài Đặt.</p>
                       <p className="text-sm text-brand-text-sub mt-1">Nhật ký hệ thống lưu trữ toàn bộ các thay đổi của mọi người dùng với chức năng xoá sửa để truy vết.</p>
                     </div>
                   </div>
                 </div>
+                )}
 
               </div>
             </CardContent>

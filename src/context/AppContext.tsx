@@ -29,9 +29,9 @@ export const DEFAULT_PERMISSIONS: Record<Role, UserPermissions> = {
       },
       'CSKH': {
          dashboard: { view: false, create: false, edit: false, delete: false },
-         products: { view: true, create: false, edit: false, delete: false },
-         transactions: { view: true, create: true, edit: false, delete: false },
-         debts: { view: false, create: false, edit: false, delete: false },
+         products: { view: true, create: true, edit: true, delete: false },
+         transactions: { view: true, create: true, edit: true, delete: false },
+         debts: { view: true, create: true, edit: true, delete: false },
          partners: { view: true, create: true, edit: true, delete: false },
          users: { view: false, create: false, edit: false, delete: false },
          logs: { view: false, create: false, edit: false, delete: false },
